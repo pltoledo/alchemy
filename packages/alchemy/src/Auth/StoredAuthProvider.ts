@@ -263,7 +263,7 @@ export const makeStoredAuthProvider = <Resolved>(
                 new NeedsReauth({
                   provider,
                   profile: profileName,
-                  message: `${provider} stored credentials not found. ${yield* refreshHint(provider, profileName)}`,
+                  message: `${provider} stored credentials not found. ${refreshHint(provider, profileName)}`,
                 }),
               );
             }),

@@ -1,3 +1,4 @@
+import { Action } from "@/Action";
 import { adopt, AdoptPolicy, Unowned } from "@/AdoptPolicy";
 import { dedupeBindings } from "@/Diff";
 import type { Input, InputProps } from "@/Input";
@@ -8,6 +9,7 @@ import * as Provider from "@/Provider";
 import { UnsatisfiedResourceCycle } from "@/Plan";
 import { remote } from "@/ProviderMode.ts";
 import { renamedFrom } from "@/Rename.ts";
+import { Progress, type ProgressEvent } from "@/Report.ts";
 import type { ResourceBinding } from "@/Resource";
 import * as Stack from "@/Stack";
 import { Stage } from "@/Stage";
@@ -223,6 +225,160 @@ test(
         (d: any) => Object.keys(d).length === 0,
         "empty object",
       ),
+    });
+  }),
+);
+
+test(
+  "reports each diffed resource and action through the ambient Progress reporter",
+  Effect.gen(function* () {
+    yield* seed({
+      A: {
+        instanceId,
+        providerVersion: 0,
+        logicalId: "A",
+        fqn: "A",
+        namespace: undefined,
+        resourceType: "Test.BindingTarget",
+        status: "created",
+        props: {
+          name: "target",
+        },
+        attr: {
+          name: "target",
+          env: {},
+        },
+        bindings: [],
+        downstream: [],
+      },
+    });
+    const Announce = Action("Announce", (_: { table: string }) =>
+      Effect.succeed(1),
+    );
+    const events: Array<ProgressEvent> = [];
+    yield* Effect.gen(function* () {
+      const target = yield* BindingTarget("A", { name: "target" });
+      yield* target.bind("TestBinding", { env: { FEATURE_FLAG: "on" } });
+      yield* Queue("MyQueue", { name: "test-queue" });
+      yield* Announce({ table: "users" });
+    }).pipe(
+      makePlan,
+      Effect.provideService(Progress, (event) =>
+        Effect.sync(() => {
+          events.push(event);
+        }),
+      ),
+    );
+
+    // Phase markers land before any node event: state loads, then diffing.
+    expect(
+      events
+        .filter((event) => event._tag === "plan.phase")
+        .map(({ phase }) => phase),
+    ).toEqual(["loading-state", "computing-plan"]);
+    expect(events[0]).toMatchObject({
+      _tag: "plan.phase",
+      phase: "loading-state",
+    });
+    expect(events[1]).toMatchObject({
+      _tag: "plan.phase",
+      phase: "computing-plan",
+    });
+
+    // Each resource diff announces its start before the planned completion.
+    expect(
+      events
+        .filter((event) => event._tag === "plan.resource.started")
+        .map(({ logicalId }) => logicalId)
+        .sort(),
+    ).toEqual(["A", "MyQueue"]);
+
+    const nodes = events.filter(
+      (event) =>
+        event._tag === "plan.resource.completed" ||
+        event._tag === "plan.action.completed",
+    );
+    const byId = Object.fromEntries(
+      nodes.map((event) => [event.logicalId, event]),
+    );
+    // resource rows carry their binding rows across the wire
+    expect(byId.A).toMatchObject({
+      _tag: "plan.resource.completed",
+      action: "update",
+      bindings: [{ sid: "TestBinding", action: "create" }],
+      total: 2,
+    });
+    expect(byId.MyQueue).toMatchObject({
+      _tag: "plan.resource.completed",
+      action: "create",
+      bindings: [],
+      total: 2,
+    });
+    // stack actions get their own events
+    expect(byId.Announce).toMatchObject({
+      _tag: "plan.action.completed",
+      actionType: "Announce",
+      action: "run",
+      completed: 1,
+      total: 1,
+    });
+    expect(
+      events
+        .filter((event) => event._tag === "plan.resource.completed")
+        .map(({ completed }) => completed)
+        .sort(),
+    ).toEqual([1, 2]);
+  }),
+);
+
+test(
+  "destroy plans report deletions through the ambient Progress reporter",
+  Effect.gen(function* () {
+    yield* seed({
+      MyBucket: {
+        instanceId,
+        providerVersion: 0,
+        logicalId: "MyBucket",
+        fqn: "MyBucket",
+        namespace: undefined,
+        resourceType: "Test.Bucket",
+        status: "created",
+        props: { name: "test-bucket" },
+        attr: { name: "test-bucket" },
+        bindings: [],
+        downstream: [],
+      },
+    });
+    const events: Array<ProgressEvent> = [];
+    const { name, stage } = yield* resolveStackId;
+    const plan = yield* Plan.destroy({ name, stage }).pipe(
+      Effect.provideService(Progress, (event) =>
+        Effect.sync(() => {
+          events.push(event);
+        }),
+      ),
+      Effect.provide(TestLayers()),
+    );
+
+    expect(plan.deletions.MyBucket).toMatchObject({ action: "delete" });
+    expect(
+      events
+        .filter((event) => event._tag === "plan.phase")
+        .map(({ phase }) => phase),
+    ).toEqual(["loading-state", "computing-plan"]);
+    const nodes = events.filter(
+      (event) => event._tag === "plan.resource.completed",
+    );
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toMatchObject({
+      _tag: "plan.resource.completed",
+      fqn: "MyBucket",
+      logicalId: "MyBucket",
+      resourceType: "Test.Bucket",
+      action: "delete",
+      bindings: [],
+      completed: 1,
+      total: 1,
     });
   }),
 );

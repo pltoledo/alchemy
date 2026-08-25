@@ -1,6 +1,6 @@
 import { adopt, Unowned } from "@/AdoptPolicy";
 import type { DestroyError } from "@/Apply";
-import { Cli } from "@/Cli/Cli";
+import { Cli } from "@/Report.ts";
 import * as Namespace from "@/Namespace.ts";
 import * as Output from "@/Output";
 import * as Provider from "@/Provider";
@@ -1402,6 +1402,13 @@ describe("prop-flow convergence", () => {
       Effect.gen(function* () {
         const events: Array<{ id: string; status: string }> = [];
         const cli = Cli.of({
+          startPlanningSession: () =>
+            Effect.succeed({
+              update: () => Effect.void,
+              succeed: () => Effect.void,
+              fail: () => Effect.void,
+              close: Effect.void,
+            }),
           approvePlan: () => Effect.succeed(true),
           displayPlan: () => Effect.void,
           startApplySession: () =>
@@ -1409,7 +1416,7 @@ describe("prop-flow convergence", () => {
               done: () => Effect.void,
               emit: (event) =>
                 Effect.sync(() => {
-                  if (event.kind === "status-change") {
+                  if (event._tag === "apply.resource.status") {
                     events.push({
                       id: event.id,
                       status: event.status,
@@ -1456,6 +1463,39 @@ describe("prop-flow convergence", () => {
         expect(terminal("A")).toEqual(["updated"]);
         expect(terminal("B")).toEqual(["updated"]);
       }),
+  );
+
+  test.provider("apply sessions finalize after a resource failure", (stack) =>
+    Effect.gen(function* () {
+      let finalized = 0;
+      const cli = Cli.of({
+        startPlanningSession: () =>
+          Effect.succeed({
+            update: () => Effect.void,
+            succeed: () => Effect.void,
+            fail: () => Effect.void,
+            close: Effect.void,
+          }),
+        approvePlan: () => Effect.succeed(true),
+        displayPlan: () => Effect.void,
+        startApplySession: () =>
+          Effect.succeed({
+            done: () =>
+              Effect.sync(() => {
+                finalized += 1;
+              }),
+            emit: () => Effect.void,
+          }),
+      });
+
+      yield* TestResource("A", { string: "value" }).pipe(
+        stack.deploy,
+        hook(failOn("A", "create")),
+        Effect.provide(Layer.succeed(Cli, cli)),
+      );
+
+      expect(finalized).toBe(1);
+    }),
   );
 
   // Regression: a resource with `precreate` (e.g. Cloudflare Worker) resolves
