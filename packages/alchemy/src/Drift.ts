@@ -551,6 +551,14 @@ export const plan = (stack: {
       resources[fqn] = {
         action,
         props: persisted.props,
+        drift:
+          r.action === "drifted" || r.action === "missing"
+            ? {
+                expected: persisted.attr,
+                actual: r.attr,
+                missing: r.action === "missing",
+              }
+            : undefined,
         state: persisted,
         provider,
         mode: persisted.providerMode,

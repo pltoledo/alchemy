@@ -267,12 +267,27 @@ it("renders detailed plans as nested YAML", () => {
     { columns: 80 },
   );
 
-  expect(output).toContain("before:");
+  expect(output).toContain("properties:");
   expect(output).toContain("config:");
-  expect(output).toContain("retries: 2");
-  expect(output).toContain("after:");
-  expect(output).toContain("retries: 3");
+  expect(output).toContain("-       retries: 2");
+  expect(output).toContain("+       retries: 3");
   expect(output).toContain("(Test.Resource)");
+});
+
+it("renders drift details without detailed mode", () => {
+  const { service } = makeStatic();
+  const node = updateNode({ value: "declared" }, { value: "declared" });
+  node.drift = {
+    expected: { value: "declared" },
+    actual: { value: "changed-out-of-band" },
+  };
+  const output = service.output.format(<Plan plan={planWith([node])} />, {
+    columns: 80,
+  });
+
+  expect(output).not.toContain("drift:");
+  expect(output).toContain("-   value: declared");
+  expect(output).toContain("+   value: changed-out-of-band");
 });
 
 it("replaces provider details with refresh progress in place", () => {
@@ -482,6 +497,11 @@ it.effect("renders confirmations as a compact segmented choice", () =>
     expect(
       (yield* service.output.render(<BooleanChoice value={false} />)).trim(),
     ).toBe("Yes   No");
+    expect(
+      (yield* service.output.render(
+        <BooleanChoice value trueLabel="Destroy" falseLabel="Cancel" />,
+      )).trim(),
+    ).toBe("Destroy   Cancel");
   }),
 );
 

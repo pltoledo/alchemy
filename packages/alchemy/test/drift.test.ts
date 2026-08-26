@@ -639,6 +639,15 @@ describe("plan", () => {
         expect(plan.resources.Clean?.action).toEqual("noop");
         expect(plan.resources.Drifted?.action).toEqual("update");
         expect(plan.resources.Missing?.action).toEqual("create");
+        expect(plan.resources.Drifted).toMatchObject({
+          drift: {
+            expected: { value: "drifted" },
+            actual: { value: "hijacked" },
+          },
+        });
+        expect(plan.resources.Missing).toMatchObject({
+          drift: { expected: { value: "missing" }, missing: true },
+        });
         // detection result rides along
         expect(result.resources).toMatchObject({
           Clean: { action: "unchanged" },
@@ -808,12 +817,14 @@ describe("session events", () => {
         // drift repair reports the update lifecycle
         expect(events).toContainEqual({
           _tag: "apply.resource.status",
+          fqn: "Drifted",
           id: "Drifted",
           type: "Test.DriftResource",
           status: "updating",
         });
         expect(events).toContainEqual({
           _tag: "apply.resource.status",
+          fqn: "Drifted",
           id: "Drifted",
           type: "Test.DriftResource",
           status: "updated",
@@ -821,12 +832,14 @@ describe("session events", () => {
         // recreation reports the create lifecycle
         expect(events).toContainEqual({
           _tag: "apply.resource.status",
+          fqn: "Missing",
           id: "Missing",
           type: "Test.DriftResource",
           status: "creating",
         });
         expect(events).toContainEqual({
           _tag: "apply.resource.status",
+          fqn: "Missing",
           id: "Missing",
           type: "Test.DriftResource",
           status: "created",
@@ -834,6 +847,7 @@ describe("session events", () => {
         // skipped resources settle with a terminal status and a reason note
         expect(events).toContainEqual({
           _tag: "apply.resource.status",
+          fqn: "MyBucket",
           id: "MyBucket",
           type: "Test.Bucket",
           status: "skipped",

@@ -48,6 +48,7 @@ export {
   CycleList,
   InlineConfirm,
   PromptFrame,
+  SegmentedChoice,
   TextField,
   useCycleNavigation,
   useTerminalInput,

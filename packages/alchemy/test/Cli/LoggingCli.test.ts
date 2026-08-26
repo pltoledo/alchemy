@@ -33,8 +33,8 @@ describe("formatPlanLines", () => {
       { detailed: true },
     ).join("\n");
     expect(output).toContain("  properties:\n    ports:\n      - 80");
-    expect(output).toContain("  after:\n    retries: 3");
-    expect(output).toContain("  before:\n    retries: 2");
+    expect(output).toContain("  properties:\n  -   retries: 2");
+    expect(output).toContain("  +   retries: 3");
   });
 
   test("keeps deletes compact and reports non-property replacements", () => {

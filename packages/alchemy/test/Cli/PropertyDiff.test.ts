@@ -1,5 +1,6 @@
 import {
   formatDeclaredPropertyYaml,
+  formatDriftPropertyYaml,
   formatYamlLines,
 } from "@/Cli/PropertyDiff.ts";
 import * as Output from "@/Output.ts";
@@ -25,20 +26,20 @@ describe("YAML property display", () => {
     ]);
   });
 
-  test("shows before and after YAML for updates", () => {
+  test("shows contextual git-style YAML for updates", () => {
     expect(
       formatDeclaredPropertyYaml(
-        { config: { retries: 2 } },
-        { config: { retries: 3 } },
+        { id: "same", config: { enabled: true, retries: 2 } },
+        { id: "same", config: { enabled: true, retries: 3 } },
         "update",
       )?.lines,
     ).toEqual([
-      "before:",
+      "properties:",
       "  config:",
-      "    retries: 2",
-      "after:",
-      "  config:",
-      "    retries: 3",
+      "    enabled: true",
+      "-     retries: 2",
+      "+     retries: 3",
+      "  id: same",
     ]);
   });
 
@@ -46,6 +47,27 @@ describe("YAML property display", () => {
     expect(
       formatDeclaredPropertyYaml({ name: "same" }, { name: "same" }, "replace"),
     ).toBeUndefined();
+  });
+
+  test("shows only changed drift attributes", () => {
+    expect(
+      formatDriftPropertyYaml(
+        { id: "same", config: { enabled: true, retries: 2 } },
+        { id: "same", config: { enabled: true, retries: 5 } },
+      ).lines,
+    ).toEqual([
+      "config:",
+      "  enabled: true",
+      "-   retries: 2",
+      "+   retries: 5",
+      "id: same",
+    ]);
+  });
+
+  test("identifies resources missing from the cloud", () => {
+    expect(
+      formatDriftPropertyYaml({ id: "expected" }, undefined, true).lines,
+    ).toEqual(["- id: expected", "+ (missing)"]);
   });
 
   test("never evaluates or reveals deferred and secret values", () => {
@@ -74,8 +96,7 @@ describe("YAML property display", () => {
       { token: Redacted.make("new-secret") },
       "update",
     )?.lines.join("\n");
-    expect(lines).toContain("before:\n  token: (redacted)");
-    expect(lines).toContain("after:\n  token: (redacted)");
+    expect(lines).toContain("properties:\n  token: (redacted)");
     expect(lines).not.toContain("old-secret");
     expect(lines).not.toContain("new-secret");
   });

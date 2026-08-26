@@ -6,6 +6,7 @@ import * as Flag from "effect/unstable/cli/Flag";
 import * as Drift from "../../Alchemist/routes/drift.ts";
 import { Cli } from "../../Report.ts";
 import * as CliKit from "../CliKit/index.ts";
+import { planDecisionScreen } from "../views/PlanDecision.tsx";
 
 import { config, envFile, profile, stage } from "./flags.ts";
 import { instrumentCommand } from "./instrument.ts";
@@ -50,16 +51,34 @@ const routeDrift = Effect.fn(function* ({
   }
 
   if (!repair) {
-    yield* cli.displayPlan(snapshot.repairPlan.native);
     const terminal = yield* CliKit.CliKit;
-    if (!terminal.terminal.input) return;
-    const approved = yield* terminal.prompt
-      .confirm({
-        message: "Repair this drift?",
-        initialValue: false,
-      })
-      .pipe(Effect.catchTag("TerminalCancelled", () => Effect.succeed(false)));
-    if (!approved) return;
+    if (!terminal.terminal.input) {
+      return yield* cli.displayPlan(snapshot.repairPlan.native);
+    }
+    const decision = yield* terminal.prompt
+      .custom(
+        planDecisionScreen({
+          plan: snapshot.repairPlan.native,
+          message: "Drift detected",
+          choices: [
+            {
+              value: "repair" as const,
+              label: "Repair",
+            },
+            {
+              value: "cancel" as const,
+              label: "Cancel",
+            },
+          ],
+          initialValue: "cancel" as const,
+        }),
+      )
+      .pipe(
+        Effect.catchTag("TerminalCancelled", () =>
+          Effect.succeed("cancel" as const),
+        ),
+      );
+    if (decision === "cancel") return;
   }
 
   yield* Drift.repair(snapshot).pipe(renderApply(snapshot.repairPlan.native));

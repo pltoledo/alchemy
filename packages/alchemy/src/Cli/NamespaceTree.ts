@@ -8,6 +8,7 @@ import type {
 import type { ProviderMode } from "../ProviderMode.ts";
 import {
   formatDeclaredPropertyYaml,
+  formatDriftPropertyYaml,
   type DeclaredPropertyYaml,
 } from "./PropertyDiff.ts";
 
@@ -205,17 +206,23 @@ const flattenNamespace = (
           ? resource.state.providerMode
           : undefined,
       propertyYaml:
-        options.includePropertyYaml &&
-        (resource.action === "create" ||
-          resource.action === "update" ||
-          resource.action === "adopted" ||
-          resource.action === "replace")
-          ? formatDeclaredPropertyYaml(
-              resource.action === "create" ? {} : resource.state.props,
-              resource.props,
-              resource.action === "adopted" ? "update" : resource.action,
+        "drift" in resource && resource.drift !== undefined
+          ? formatDriftPropertyYaml(
+              resource.drift.expected,
+              resource.drift.actual,
+              resource.drift.missing,
             )
-          : undefined,
+          : options.includePropertyYaml &&
+              (resource.action === "create" ||
+                resource.action === "update" ||
+                resource.action === "adopted" ||
+                resource.action === "replace")
+            ? formatDeclaredPropertyYaml(
+                resource.action === "create" ? {} : resource.state.props,
+                resource.props,
+                resource.action === "adopted" ? "update" : resource.action,
+              )
+            : undefined,
     });
     for (const binding of [...resource.bindings].sort((a, b) =>
       a.sid.localeCompare(b.sid),

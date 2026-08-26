@@ -18,6 +18,8 @@ const color = {
   coral: "#ef9a6a",
   muted: "#8f887c",
   surface: "#36332e",
+  diffAddBackground: "#263b2a",
+  diffRemoveBackground: "#422a26",
   onSurface: "#f5f0e6",
   onAccent: "#14110d",
   emphasis: "#f5f0e6",

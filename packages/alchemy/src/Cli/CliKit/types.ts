@@ -61,6 +61,8 @@ export interface PasswordInputOptions extends Omit<
 export interface ConfirmOptions {
   readonly message: string;
   readonly initialValue?: boolean;
+  readonly confirmLabel?: string;
+  readonly cancelLabel?: string;
 }
 
 export interface SelectOptions<Value> {

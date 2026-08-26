@@ -708,7 +708,11 @@ function ConfirmPrompt({ options, submit, cancel }: ConfirmPromptProps) {
       answer,
       <AnsweredPrompt
         message={options.message}
-        answer={answer ? "yes" : "no"}
+        answer={
+          answer
+            ? (options.confirmLabel ?? "yes")
+            : (options.cancelLabel ?? "no")
+        }
       />,
     );
   const value = useConfirmKeys({
@@ -720,12 +724,22 @@ function ConfirmPrompt({ options, submit, cancel }: ConfirmPromptProps) {
     <PromptFrame
       message={options.message}
       keys={[
-        [keys.yesNo, "choose"],
+        [
+          options.confirmLabel === undefined &&
+          options.cancelLabel === undefined
+            ? keys.yesNo
+            : keys.leftRight,
+          "choose",
+        ],
         [keys.enter, "confirm"],
         [keys.escape, "cancel"],
       ]}
     >
-      <BooleanChoice value={value} />
+      <BooleanChoice
+        value={value}
+        trueLabel={options.confirmLabel}
+        falseLabel={options.cancelLabel}
+      />
     </PromptFrame>
   );
 }

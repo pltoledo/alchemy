@@ -119,6 +119,8 @@ const teardownCommand = Command.make(
           message:
             "Tear down the Cloudflare state store and its backing resources?",
           initialValue: false,
+          confirmLabel: "Destroy",
+          cancelLabel: "Cancel",
         }))
       ) {
         return;
@@ -295,6 +297,8 @@ const createTokenCommand = Command.make(
           !(yield* prompt.prompt.confirm({
             message: "Create a superuser token with all permissions?",
             initialValue: false,
+            confirmLabel: "Create",
+            cancelLabel: "Cancel",
           }))
         ) {
           yield* prompt.output.info("Cancelled.");

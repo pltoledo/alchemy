@@ -14,9 +14,94 @@ export type YamlDisplayValue =
   | { readonly [key: string]: YamlDisplayValue };
 
 export interface DeclaredPropertyYaml {
-  readonly kind: "create" | "change";
+  readonly kind: "create" | "change" | "drift";
   readonly lines: ReadonlyArray<string>;
 }
+
+const unifiedDriftLines = (
+  expected: YamlDisplayValue,
+  actual: YamlDisplayValue,
+  depth = 0,
+): string[] => {
+  const padding = " ".repeat(depth);
+  if (JSON.stringify(expected) === JSON.stringify(actual)) {
+    return indent(formatYamlLines(expected), depth);
+  }
+  if (
+    expected !== null &&
+    actual !== null &&
+    !Array.isArray(expected) &&
+    !Array.isArray(actual) &&
+    typeof expected === "object" &&
+    typeof actual === "object"
+  ) {
+    const lines: string[] = [];
+    for (const key of [
+      ...new Set([...Object.keys(expected), ...Object.keys(actual)]),
+    ].sort((a, b) => a.localeCompare(b))) {
+      const hasExpected = Object.hasOwn(expected, key);
+      const hasActual = Object.hasOwn(actual, key);
+      const expectedValue = hasExpected ? expected[key]! : UNDEFINED;
+      const actualValue = hasActual ? actual[key]! : UNDEFINED;
+      if (
+        hasExpected &&
+        hasActual &&
+        expectedValue !== null &&
+        actualValue !== null &&
+        !Array.isArray(expectedValue) &&
+        !Array.isArray(actualValue) &&
+        typeof expectedValue === "object" &&
+        typeof actualValue === "object" &&
+        JSON.stringify(expectedValue) !== JSON.stringify(actualValue)
+      ) {
+        lines.push(`${padding}${key}:`);
+        lines.push(...unifiedDriftLines(expectedValue, actualValue, depth + 2));
+      } else if (
+        JSON.stringify(expectedValue) === JSON.stringify(actualValue)
+      ) {
+        lines.push(...indent(formatYamlLines({ [key]: expectedValue }), depth));
+      } else {
+        if (hasExpected) {
+          lines.push(
+            ...indent(formatYamlLines({ [key]: expectedValue }), depth).map(
+              mark("-"),
+            ),
+          );
+        }
+        if (hasActual) {
+          lines.push(
+            ...indent(formatYamlLines({ [key]: actualValue }), depth).map(
+              mark("+"),
+            ),
+          );
+        }
+      }
+    }
+    return lines;
+  }
+  return [
+    ...indent(formatYamlLines(expected), depth).map(mark("-")),
+    ...indent(formatYamlLines(actual), depth).map(mark("+")),
+  ];
+};
+
+const mark = (marker: "-" | "+") => (line: string) => {
+  return `${marker} ${line}`;
+};
+
+/** Format the changed cloud attributes carried by a drift-repair plan. */
+export const formatDriftPropertyYaml = (
+  expected: unknown,
+  actual: unknown,
+  missing = false,
+): DeclaredPropertyYaml => {
+  const expectedValue = toYamlDisplayValue(expected);
+  const actualValue = missing ? "(missing)" : toYamlDisplayValue(actual);
+  return {
+    kind: "drift",
+    lines: unifiedDriftLines(expectedValue, actualValue),
+  };
+};
 
 const REDACTED = "(redacted)";
 const KNOWN_AFTER_APPLY = "(known after apply)";
@@ -102,13 +187,15 @@ export const formatDeclaredPropertyYaml = (
   return {
     kind: "change",
     lines: [
-      "before:",
-      ...indent(formatYamlLines(oldProps ?? {})),
-      "after:",
-      ...indent(formatYamlLines(desired)),
+      "properties:",
+      ...unifiedDriftLines(
+        toYamlDisplayValue(oldProps ?? {}),
+        toYamlDisplayValue(desired),
+        2,
+      ),
     ],
   };
 };
 
-const indent = (lines: ReadonlyArray<string>): string[] =>
-  lines.map((line) => `  ${line}`);
+const indent = (lines: ReadonlyArray<string>, spaces = 2): string[] =>
+  lines.map((line) => `${" ".repeat(spaces)}${line}`);

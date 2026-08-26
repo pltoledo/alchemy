@@ -25,7 +25,20 @@ describe("NamespaceTree YAML properties", () => {
     ).toEqual(["properties:", "  config:", "    region: iad"]);
     expect(
       items.find((item) => item.id === "Worker")?.propertyYaml?.lines,
-    ).toEqual(["before:", "  retries: 2", "after:", "  retries: 3"]);
+    ).toEqual(["properties:", "-   retries: 2", "+   retries: 3"]);
+  });
+
+  test("attaches drift details in compact mode", () => {
+    const node = updateNode({ value: "declared" }, { value: "declared" });
+    node.drift = {
+      expected: { value: "declared" },
+      actual: { value: "changed-out-of-band" },
+    };
+    const [item] = flattenTree(buildNamespaceTree([node]));
+    expect(item?.propertyYaml?.lines).toEqual([
+      "- value: declared",
+      "+ value: changed-out-of-band",
+    ]);
   });
 
   test("represents non-property replacement details honestly", () => {

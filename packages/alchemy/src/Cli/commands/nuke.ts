@@ -167,6 +167,8 @@ const nukeCommand = Command.make(
         !(yield* CliKit.accessors.prompt.confirm({
           message: `Permanently DELETE ${targets.length} ${args.local ? "locally emulated " : ""}resource(s)? This cannot be undone.`,
           initialValue: false,
+          confirmLabel: "Delete",
+          cancelLabel: "Cancel",
         }))
       ) {
         yield* CliKit.accessors.output.info("Aborted.");

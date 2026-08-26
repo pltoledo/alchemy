@@ -4,8 +4,11 @@ import * as Option from "effect/Option";
 import * as Command from "effect/unstable/cli/Command";
 import * as Flag from "effect/unstable/cli/Flag";
 
+import * as Drift from "../../Alchemist/routes/drift.ts";
 import * as Stacks from "../../Alchemist/routes/stack.ts";
 import { Cli } from "../../Report.ts";
+import * as CliKit from "../CliKit/index.ts";
+import { planDecisionScreen } from "../views/PlanDecision.tsx";
 
 import {
   config,
@@ -30,6 +33,7 @@ interface StackCommandOptions {
   readonly destroy?: boolean;
   readonly adopt?: boolean;
   readonly detailed?: boolean;
+  readonly detectDrift?: boolean;
 }
 
 const stackSpanAttrs = (args: StackCommandOptions) => ({
@@ -41,6 +45,7 @@ const stackSpanAttrs = (args: StackCommandOptions) => ({
   "alchemy.destroy": !!args.destroy,
   "alchemy.adopt": !!args.adopt,
   "alchemy.detailed": !!args.detailed,
+  "alchemy.detect_drift": !!args.detectDrift,
 });
 
 const adopt = Flag.boolean("adopt").pipe(
@@ -55,6 +60,92 @@ const detailed = Flag.boolean("detailed").pipe(
   Flag.withDescription("Show declared resource properties as YAML"),
   Flag.withDefault(false),
 );
+
+const detectDrift = Flag.boolean("detect-drift").pipe(
+  Flag.withDescription(
+    "Detect infrastructure drift and offer to repair it before deploying",
+  ),
+  Flag.withDefault(false),
+);
+
+const detectAndMaybeRepairDrift = Effect.fn(function* (
+  target: Stacks.StackTarget,
+  options: {
+    readonly yes?: boolean;
+    readonly detailed?: boolean;
+    readonly dryRun?: boolean;
+  },
+) {
+  const cli = yield* Cli;
+  const snapshot = yield* Drift.inspect(target).pipe(
+    renderPlanning({
+      operation: "Drift",
+      stage: target.stage,
+      computingLabel: "Checking drift",
+      readyLabel: "Drift check complete",
+    }),
+  );
+  if (!Drift.hasDrift(snapshot)) return true;
+
+  if (options.dryRun) {
+    yield* cli.displayPlan(snapshot.repairPlan.native, {
+      detailed: options.detailed,
+      stage: target.stage,
+    });
+    return true;
+  }
+
+  let decision: "repair" | "deploy" | "cancel" = options.yes
+    ? "repair"
+    : "cancel";
+  if (!options.yes) {
+    const terminal = yield* CliKit.CliKit;
+    if (terminal.terminal.input) {
+      decision = yield* terminal.prompt
+        .custom(
+          planDecisionScreen({
+            plan: snapshot.repairPlan.native,
+            message: "Drift detected",
+            choices: [
+              {
+                value: "repair" as const,
+                label: "Repair and Deploy",
+              },
+              {
+                value: "deploy" as const,
+                label: "Deploy without Repair",
+              },
+              {
+                value: "cancel" as const,
+                label: "Cancel",
+              },
+            ],
+            initialValue: "cancel" as const,
+          }),
+        )
+        .pipe(
+          Effect.catchTag("TerminalCancelled", () =>
+            Effect.succeed("cancel" as const),
+          ),
+        );
+    } else {
+      yield* cli.displayPlan(snapshot.repairPlan.native, {
+        detailed: options.detailed,
+        stage: target.stage,
+      });
+    }
+  }
+
+  if (decision === "repair") {
+    yield* Drift.repair(snapshot).pipe(
+      renderApply(snapshot.repairPlan.native, {
+        detailed: options.detailed,
+        stage: target.stage,
+      }),
+    );
+  }
+  return decision !== "cancel";
+});
 
 const runStack = Effect.fn(function* (options: StackCommandOptions) {
   const cli = yield* Cli;
@@ -75,6 +166,11 @@ const runStack = Effect.fn(function* (options: StackCommandOptions) {
     operation,
     stage: options.stage,
   });
+
+  if (options.detectDrift && !options.destroy) {
+    const proceed = yield* detectAndMaybeRepairDrift(target, options);
+    if (!proceed) return;
+  }
 
   const snapshot = yield* Stacks.plan({
     target,
@@ -114,6 +210,7 @@ export const deployCommand = Command.make(
     profile,
     adopt,
     detailed,
+    detectDrift,
   },
   instrumentCommand("deploy", stackSpanAttrs)(runStack),
 );

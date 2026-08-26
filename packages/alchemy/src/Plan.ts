@@ -142,6 +142,12 @@ export interface BaseNode<
 export interface ApplyNodeBase<
   R extends ResourceLike<string> = ResourceLike<string>,
 > extends BaseNode<R> {
+  /** Cloud attribute drift attached to synthetic drift-repair plans. */
+  drift?: {
+    readonly expected: unknown;
+    readonly actual: unknown;
+    readonly missing?: boolean;
+  };
   /**
    * Set when this resource's persisted row was found under former FQNs
    * (`renamedFrom(...)`) — the migration source (no row at the current FQN

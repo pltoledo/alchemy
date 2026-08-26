@@ -680,6 +680,8 @@ export const useConfirmKeys = ({
 type InlineConfirmProps = {
   readonly message: string;
   readonly initialValue?: boolean;
+  readonly confirmLabel?: string;
+  readonly cancelLabel?: string;
   readonly active?: boolean;
   readonly onSubmit: (value: boolean) => void;
   readonly onCancel?: () => void;
@@ -688,6 +690,8 @@ type InlineConfirmProps = {
 export function InlineConfirm({
   message,
   initialValue = false,
+  confirmLabel = "Yes",
+  cancelLabel = "No",
   active,
   onSubmit,
   onCancel,
@@ -699,7 +703,11 @@ export function InlineConfirm({
       <Text bold color={theme.color.brand}>
         {message}
       </Text>
-      <BooleanChoice value={value} />
+      <BooleanChoice
+        value={value}
+        trueLabel={confirmLabel}
+        falseLabel={cancelLabel}
+      />
       <KeyBar
         marginTop={0}
         keys={[
@@ -712,34 +720,61 @@ export function InlineConfirm({
   );
 }
 
-type BooleanChoiceProps = { readonly value: boolean };
+type BooleanChoiceProps = {
+  readonly value: boolean;
+  readonly trueLabel?: string;
+  readonly falseLabel?: string;
+};
 
-export function BooleanChoice({ value }: BooleanChoiceProps) {
+export function SegmentedChoice<Value>({
+  choices,
+  value,
+}: {
+  readonly choices: ReadonlyArray<{
+    readonly value: Value;
+    readonly label: string;
+  }>;
+  readonly value: Value;
+}) {
   return (
     <Box gap={1} paddingLeft={theme.space.indent} aria-role="radiogroup">
-      <Box
-        paddingX={1}
-        backgroundColor={value ? theme.paint.interactive : undefined}
-        aria-role="radio"
-        aria-label="Yes"
-        aria-state={{ checked: value }}
-      >
-        <Text bold={value} color={value ? theme.color.onAccent : undefined}>
-          Yes
-        </Text>
-      </Box>
-      <Box
-        paddingX={1}
-        backgroundColor={!value ? theme.paint.interactive : undefined}
-        aria-role="radio"
-        aria-label="No"
-        aria-state={{ checked: !value }}
-      >
-        <Text bold={!value} color={!value ? theme.color.onAccent : undefined}>
-          No
-        </Text>
-      </Box>
+      {choices.map((choice) => {
+        const active = choice.value === value;
+        return (
+          <Box
+            key={choice.label}
+            paddingX={1}
+            backgroundColor={active ? theme.paint.interactive : undefined}
+            aria-role="radio"
+            aria-label={choice.label}
+            aria-state={{ checked: active }}
+          >
+            <Text
+              bold={active}
+              color={active ? theme.color.onAccent : undefined}
+            >
+              {choice.label}
+            </Text>
+          </Box>
+        );
+      })}
     </Box>
+  );
+}
+
+export function BooleanChoice({
+  value,
+  trueLabel = "Yes",
+  falseLabel = "No",
+}: BooleanChoiceProps) {
+  return (
+    <SegmentedChoice
+      value={value}
+      choices={[
+        { value: true, label: trueLabel },
+        { value: false, label: falseLabel },
+      ]}
+    />
   );
 }
 

@@ -89,6 +89,8 @@ export const deleteProfileFlow = Effect.fn(function* (options: {
     !(yield* CliKit.accessors.prompt.confirm({
       message: `Delete profile '${options.name}' and all its stored credentials? This cannot be undone.`,
       initialValue: false,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
     }))
   ) {
     yield* CliKit.accessors.output.info("Aborted.");

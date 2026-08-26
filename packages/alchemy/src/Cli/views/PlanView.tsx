@@ -11,9 +11,8 @@
  *   {@link ApplyEvent}s.
  * - Two presentation `mode`s: `review` renders action glyphs (`+ ~ - ±`),
  *   `apply` renders live statuses with spinners and per-row messages.
- * - Three `viewport`s: `full` height, `virtual` (terminal-sized window that
- *   follows the active row, with keyboard scrolling), or an external
- *   `{ offset, limit }` window for screens that own their input (approval).
+ * - Two `viewport`s: `full` height or `virtual` (a terminal-sized, line-based
+ *   window that follows the active row and supports keyboard scrolling).
  * - Property diffs (`detailed`) render in every mode, and the window is
  *   line-budget aware so multi-line rows never overflow the terminal.
  */
@@ -61,6 +60,7 @@ import {
   isInProgress,
   isTerminalStatus,
 } from "./statusStyle.ts";
+import type { DeclaredPropertyYaml } from "../PropertyDiff.ts";
 import { NamespaceRow, namespaceStyle } from "./PlanRow.tsx";
 
 // ── Row model ─────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ export type PlanRow =
       /** On mode-switch replacements, the old generation's stamped mode. */
       fromProviderMode?: ProviderMode;
       /** Declared property diff, present when the store was built `detailed`. */
-      propertyYaml?: { lines: ReadonlyArray<string> };
+      propertyYaml?: DeclaredPropertyYaml;
     }
   | {
       key: string;
@@ -392,39 +392,53 @@ export type PlanViewport =
   /** Render every row. */
   | "full"
   /** Terminal-sized window that follows the active row; ↑/↓ scroll. */
-  | "virtual"
-  /** Externally controlled window (the owner handles input). */
-  | { readonly offset: number; readonly limit: number };
+  | "virtual";
 
-/** Terminal lines one row occupies (multi-line rows carry YAML diffs). */
-const rowLines = (row: PlanRow, detailed: boolean): number => {
-  if (row.type !== "resource" || !detailed) return 1;
-  if (row.propertyYaml !== undefined) return 1 + row.propertyYaml.lines.length;
-  // detailed update/replace with no declared changes renders one note line
-  return row.action === "update" ||
-    row.action === "adopted" ||
-    row.action === "replace"
-    ? 2
-    : 1;
-};
+type VirtualPlanLine =
+  | { readonly kind: "row"; readonly row: PlanRow }
+  | {
+      readonly kind: "yaml";
+      readonly key: string;
+      readonly line: string;
+      readonly paddingLeft: number;
+    }
+  | {
+      readonly kind: "note";
+      readonly key: string;
+      readonly paddingLeft: number;
+    };
 
-/** Rows from `offset` that fit a line budget (always at least one row). */
-const sliceByLines = (
-  rows: PlanRow[],
-  offset: number,
-  lineBudget: number,
+const virtualPlanLines = (
+  rows: ReadonlyArray<PlanRow>,
   detailed: boolean,
-): PlanRow[] => {
-  const visible: PlanRow[] = [];
-  let used = 0;
-  for (let index = offset; index < rows.length; index++) {
-    const row = rows[index]!;
-    used += rowLines(row, detailed);
-    if (visible.length > 0 && used > lineBudget) break;
-    visible.push(row);
-  }
-  return visible;
-};
+): VirtualPlanLine[] =>
+  rows.flatMap((row): VirtualPlanLine[] => {
+    const lines: VirtualPlanLine[] = [{ kind: "row", row }];
+    if (row.type !== "resource") return lines;
+    const showYaml = detailed || row.propertyYaml?.kind === "drift";
+    if (!showYaml) return lines;
+    if (row.propertyYaml !== undefined) {
+      lines.push(
+        ...row.propertyYaml.lines.map((line, index) => ({
+          kind: "yaml" as const,
+          key: `${row.key}:yaml:${index}`,
+          line,
+          paddingLeft: row.depth * 2 + 2,
+        })),
+      );
+    } else if (
+      row.action === "update" ||
+      row.action === "adopted" ||
+      row.action === "replace"
+    ) {
+      lines.push({
+        kind: "note",
+        key: `${row.key}:note`,
+        paddingLeft: row.depth * 2 + 2,
+      });
+    }
+    return lines;
+  });
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -500,19 +514,28 @@ export function PlanView(props: PlanViewProps): JSX.Element {
   const lineBudget =
     viewport === "virtual"
       ? Math.max(4, terminalRows - 8)
-      : viewport === "full"
-        ? Number.POSITIVE_INFINITY
-        : Math.max(1, viewport.limit);
+      : Number.POSITIVE_INFINITY;
   const budgetRows =
     lineBudget === Number.POSITIVE_INFINITY
       ? rows.length
       : Math.max(1, Math.floor(lineBudget));
-  const maxOffset = Math.max(0, rows.length - budgetRows);
-  const activeIndex = rows.findIndex((row) => {
+  const expandedLines = useMemo(
+    () => virtualPlanLines(rows, detailed),
+    [rows, detailed],
+  );
+  const virtualizing = viewport === "virtual" && !finished;
+  const scrollLength = virtualizing ? expandedLines.length : rows.length;
+  const maxOffset = Math.max(0, scrollLength - budgetRows);
+  const activeRowIndex = rows.findIndex((row) => {
     if (row.type !== "resource" && row.type !== "task") return false;
     const status = tasks.get(row.key)?.status;
     return status !== undefined && !isTerminalStatus(status);
   });
+  const activeIndex = virtualizing
+    ? expandedLines.findIndex(
+        (line) => line.kind === "row" && line.row === rows[activeRowIndex],
+      )
+    : activeRowIndex;
   const followedOffset = Math.min(
     maxOffset,
     Math.max(
@@ -525,15 +548,15 @@ export function PlanView(props: PlanViewProps): JSX.Element {
   const offset =
     viewport === "full"
       ? 0
-      : viewport === "virtual"
-        ? Math.min(maxOffset, manualOffset ?? followedOffset)
-        : Math.max(0, Math.min(maxOffset, viewport.offset));
-  const visibleRows =
-    viewport === "full" || (viewport === "virtual" && finished)
-      ? rows
-      : sliceByLines(rows, offset, lineBudget, detailed);
-  const shownOffset = visibleRows === rows ? 0 : offset;
-  const hiddenBelow = rows.length - shownOffset - visibleRows.length;
+      : Math.min(maxOffset, manualOffset ?? followedOffset);
+  const visibleRows = rows;
+  const visibleLines = virtualizing
+    ? expandedLines.slice(offset, offset + budgetRows)
+    : undefined;
+  const shownOffset = virtualizing ? offset : 0;
+  const hiddenBelow = virtualizing
+    ? expandedLines.length - shownOffset - (visibleLines?.length ?? 0)
+    : 0;
 
   useTerminalInput((_input, key) => {
     if (viewport !== "virtual" || finished) return;
@@ -591,22 +614,50 @@ export function PlanView(props: PlanViewProps): JSX.Element {
       <Box flexDirection="column">
         {shownOffset > 0 ? (
           <Text tone="muted">
-            {glyphs.overflowUp} {shownOffset} earlier rows
+            {glyphs.overflowUp} {shownOffset} earlier{" "}
+            {virtualizing ? "lines" : "rows"}
           </Text>
         ) : null}
-        {visibleRows.map((row) => (
-          <PlanRowView
-            key={row.key}
-            row={row}
-            mode={mode}
-            detailed={detailed}
-            state={tasks.get(row.key)}
-            defaultMode={store.plan.defaultMode}
-          />
-        ))}
+        {visibleLines === undefined
+          ? visibleRows.map((row) => (
+              <PlanRowView
+                key={row.key}
+                row={row}
+                mode={mode}
+                detailed={detailed}
+                state={tasks.get(row.key)}
+                defaultMode={store.plan.defaultMode}
+              />
+            ))
+          : visibleLines.map((line) =>
+              line.kind === "row" ? (
+                <PlanRowView
+                  key={line.row.key}
+                  row={line.row}
+                  mode={mode}
+                  detailed={detailed}
+                  includeYaml={false}
+                  state={tasks.get(line.row.key)}
+                  defaultMode={store.plan.defaultMode}
+                />
+              ) : line.kind === "yaml" ? (
+                <YamlLine
+                  key={line.key}
+                  line={line.line}
+                  paddingLeft={line.paddingLeft}
+                />
+              ) : (
+                <Box key={line.key} paddingLeft={line.paddingLeft}>
+                  <Text tone="muted" dimColor>
+                    no declared property changes
+                  </Text>
+                </Box>
+              ),
+            )}
         {hiddenBelow > 0 ? (
           <Text tone="muted">
-            {glyphs.overflowDown} {hiddenBelow} more rows
+            {glyphs.overflowDown} {hiddenBelow} more{" "}
+            {virtualizing ? "lines" : "rows"}
           </Text>
         ) : null}
       </Box>
@@ -622,8 +673,9 @@ function PlanRowView(props: {
   detailed: boolean;
   state: RowState | undefined;
   defaultMode: AlchemyPlan["defaultMode"];
+  includeYaml?: boolean;
 }): JSX.Element {
-  const { row, mode, detailed, state, defaultMode } = props;
+  const { row, mode, detailed, state, defaultMode, includeYaml = true } = props;
   const glyphs = useGlyphs();
 
   if (row.type === "namespace") {
@@ -742,7 +794,9 @@ function PlanRowView(props: {
     priorMode: row.fromProviderMode,
     defaultMode,
   });
-  const yaml = detailed ? (
+  const showYaml =
+    includeYaml && (detailed || row.propertyYaml?.kind === "drift");
+  const yaml = showYaml ? (
     row.propertyYaml === undefined ? (
       row.action === "update" ||
       row.action === "adopted" ||
@@ -767,7 +821,7 @@ function PlanRowView(props: {
   if (mode === "review") {
     const style = namespaceStyle(row.action);
     return (
-      <Box flexDirection="column" marginTop={detailed ? 1 : 0}>
+      <Box flexDirection="column" marginTop={showYaml ? 1 : 0}>
         <TaskRow
           icon={glyphs[style.icon]}
           iconColor={style.color}
@@ -964,30 +1018,42 @@ function YamlLine({
   readonly line: string;
   readonly paddingLeft: number;
 }) {
-  const key = line.match(/^(\s*)([A-Za-z_][\w .-]*:)(.*)$/);
+  const change = line.match(/^([+-]) (.*)$/);
+  const content = change?.[2] ?? line;
+  const key = content.match(/^(\s*)([A-Za-z_][\w .-]*:)(.*)$/);
+  const removed = change?.[1] === "-";
+  const added = change?.[1] === "+";
   return (
-    <Box paddingLeft={paddingLeft}>
-      <Text wrap="truncate-end">
-        {key === null ? (
-          line
-        ) : (
-          <>
-            {key[1]}
-            <Text
-              color={
-                key[2] === "before:"
-                  ? theme.color.danger
-                  : key[2] === "after:"
-                    ? theme.color.success
-                    : theme.color.info
-              }
-            >
-              {key[2]}
-            </Text>
-            {key[3]}
-          </>
-        )}
-      </Text>
+    <Box
+      width="100%"
+      backgroundColor={
+        removed
+          ? theme.color.diffRemoveBackground
+          : added
+            ? theme.color.diffAddBackground
+            : undefined
+      }
+    >
+      <Box width={2} flexShrink={0}>
+        <Text color={removed ? theme.color.danger : theme.color.success}>
+          {change?.[1] ?? " "}
+        </Text>
+      </Box>
+      <Box paddingLeft={paddingLeft} flexGrow={1}>
+        <Text wrap="truncate-end">
+          {key === null ? (
+            content
+          ) : (
+            <>
+              {key[1]}
+              <Text color={change === null ? theme.color.info : undefined}>
+                {key[2]}
+              </Text>
+              {key[3]}
+            </>
+          )}
+        </Text>
+      </Box>
     </Box>
   );
 }
@@ -1015,32 +1081,15 @@ export interface PlanProps {
   plan: AlchemyPlan;
   /** Include declared resource inputs as YAML beneath each changed row. */
   detailed?: boolean;
-  /** First tree row to render, used by interactive plan review. */
-  offset?: number;
-  /** Maximum lines to render. Omit to render the complete plan. */
-  limit?: number;
 }
 
 /** A static plan review — {@link PlanView} over a store nobody emits to. */
-export function Plan({
-  plan,
-  detailed = false,
-  offset,
-  limit,
-}: PlanProps): JSX.Element {
+export function Plan({ plan, detailed = false }: PlanProps): JSX.Element {
   const store = useMemo(
     () => new PlanViewStore(plan, { detailed }),
     [plan, detailed],
   );
   return (
-    <PlanView
-      store={store}
-      mode="review"
-      detailed={detailed}
-      viewport={limit === undefined ? "full" : { offset: offset ?? 0, limit }}
-    />
+    <PlanView store={store} mode="review" detailed={detailed} viewport="full" />
   );
 }
-
-export const countPlanRows = (plan: AlchemyPlan): number =>
-  new PlanViewStore(plan).rows.length;

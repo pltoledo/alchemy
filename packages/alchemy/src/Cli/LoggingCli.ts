@@ -215,17 +215,18 @@ export const formatPlanLines = (
   return lines;
 };
 
-const colorYamlLine = (line: string, kind: "create" | "change"): string => {
+const colorYamlLine = (
+  line: string,
+  kind: "create" | "change" | "drift",
+): string => {
+  const change = line.match(/^([+-]) (.*)$/);
+  if (change !== null) {
+    const color = change[1] === "-" ? red : green;
+    return color(`${change[1]} ${change[2]}`);
+  }
   const key = line.match(/^(\s*)([A-Za-z_][\w .-]*:)(.*)$/);
   if (key === null) return line;
-  const color =
-    kind === "create"
-      ? green
-      : key[2] === "before:"
-        ? red
-        : key[2] === "after:"
-          ? green
-          : cyan;
+  const color = kind === "create" ? green : cyan;
   return `${key[1]}${color(key[2]!)}${key[3]}`;
 };
 

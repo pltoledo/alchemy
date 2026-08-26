@@ -1,5 +1,5 @@
 /** @jsxImportSource react */
-import { useState, type JSX } from "react";
+import { useMemo, useState, type JSX } from "react";
 import {
   BooleanChoice,
   Box,
@@ -8,11 +8,10 @@ import {
   useGlyphs,
   useKeyGlyphs,
   useTerminalInput,
-  useTerminalSize,
 } from "../CliKit/components.ts";
 import { Screen, theme, type ScreenController } from "../CliKit/index.ts";
 import type { Plan as AlchemyPlan } from "../../Plan.ts";
-import { countPlanRows, Plan } from "./PlanView.tsx";
+import { Plan, PlanView, PlanViewStore } from "./PlanView.tsx";
 
 export interface ApprovePlanProps {
   plan: AlchemyPlan;
@@ -21,30 +20,27 @@ export interface ApprovePlanProps {
 }
 
 /**
- * Plan approval prompt: the plan tree followed by the same Yes/No choice and
- * key bar that `CliKit.confirm` renders. Escape cancels (treated as "no" by
- * the caller); Ctrl+C is handled centrally by the screen runner.
+ * Plan approval prompt: the plan tree followed by an operation-specific
+ * action and Cancel. Escape cancels; Ctrl+C is handled centrally by the
+ * screen runner.
  */
 export function ApprovePlan(props: ApprovePlanProps): JSX.Element {
   const { plan, detailed = false, controller } = props;
-  // Destruction is the risky path: require an explicit move to Yes before
-  // Enter can remove or orphan resources. Deploy approvals remain Yes-first.
+  // Destruction is the risky path: require an explicit move to Destroy before
+  // Enter can remove or orphan resources. Deploy approvals remain action-first.
   const [approved, setApproved] = useState(!plan.destroy);
+  const action = plan.destroy ? "Destroy" : "Deploy";
   const glyphs = useGlyphs();
   const keys = useKeyGlyphs();
-  const { rows } = useTerminalSize();
-  const totalRows = countPlanRows(plan);
-  const visibleRows = Math.max(4, rows - 14);
-  const maxOffset = Math.max(0, totalRows - visibleRows);
-  const [offset, setOffset] = useState(0);
-  const scroll = (delta: number) =>
-    setOffset((current) => Math.max(0, Math.min(maxOffset, current + delta)));
+  const store = useMemo(
+    () => new PlanViewStore(plan, { detailed }),
+    [plan, detailed],
+  );
 
   const complete = (answer: boolean) => {
     const verdict = (
       <Text color={answer ? theme.color.success : theme.color.danger}>
-        {answer ? glyphs.success : glyphs.error} Proceed?{" "}
-        {answer ? "Yes" : "No"}
+        {answer ? glyphs.success : glyphs.error} {answer ? action : "Cancelled"}
       </Text>
     );
     // On approval the plan disappears — the apply progress that follows
@@ -63,12 +59,6 @@ export function ApprovePlan(props: ApprovePlanProps): JSX.Element {
 
   useTerminalInput((input, key) => {
     if (key.left || key.right || key.tab) setApproved((current) => !current);
-    else if (key.up) scroll(-1);
-    else if (key.down) scroll(1);
-    else if (key.pageUp) scroll(-visibleRows);
-    else if (key.pageDown) scroll(visibleRows);
-    else if (key.home) setOffset(0);
-    else if (key.end) setOffset(maxOffset);
     else if (key.enter) complete(approved);
     else if (key.escape) controller.cancel();
     else if (key.ctrl || key.meta) return;
@@ -78,19 +68,23 @@ export function ApprovePlan(props: ApprovePlanProps): JSX.Element {
 
   return (
     <Box flexDirection="column" gap={1}>
-      <Plan
-        plan={plan}
+      <PlanView
+        store={store}
+        mode="review"
         detailed={detailed}
-        offset={offset}
-        limit={visibleRows}
+        viewport="virtual"
       />
       <Box flexDirection="column" marginTop={1}>
-        <Text bold>Proceed?</Text>
-        <BooleanChoice value={approved} />
+        <Text bold>{action}?</Text>
+        <BooleanChoice
+          value={approved}
+          trueLabel={action}
+          falseLabel="Cancel"
+        />
         <KeyBar
           keys={[
-            ...(maxOffset > 0 ? ([[keys.upDown, "scroll plan"]] as const) : []),
-            [keys.yesNo, "choose"],
+            [keys.upDown, "scroll plan"],
+            [keys.leftRight, "choose"],
             [keys.enter, "confirm"],
             [keys.escape, "cancel"],
           ]}

@@ -106,6 +106,8 @@ export const state = () =>
                 autoUpdateStateStore ||
                 (yield* CliKit.accessors.prompt.confirm({
                   message: `Cloudflare State Store '${scriptName}' is not available. Do you want to deploy it?`,
+                  confirmLabel: "Deploy",
+                  cancelLabel: "Cancel",
                 }));
               if (shouldDeploy) {
                 return yield* bootstrap({
@@ -158,6 +160,8 @@ export const state = () =>
                 message:
                   `Cloudflare State Store '${scriptName}' is out of date ` +
                   `(expected v${expected}, observed v${observed ?? "unknown"})`,
+                confirmLabel: "Upgrade",
+                cancelLabel: "Cancel",
               });
               if (shouldDeploy) {
                 return yield* upgrade;

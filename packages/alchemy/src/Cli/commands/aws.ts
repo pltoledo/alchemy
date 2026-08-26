@@ -68,6 +68,8 @@ const teardownCommand = Command.make(
         !(yield* CliKit.accessors.prompt.confirm({
           message: "Destroy every Alchemy bootstrap bucket in this AWS region?",
           initialValue: false,
+          confirmLabel: "Destroy",
+          cancelLabel: "Cancel",
         }))
       ) {
         return;

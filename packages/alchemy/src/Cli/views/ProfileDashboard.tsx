@@ -339,6 +339,8 @@ function DashboardControls({
     return (
       <InlineConfirm
         message={`Delete '${entry.name}' and all its stored credentials?`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         onSubmit={(confirmed) => {
           setMode("normal");
           if (confirmed) store.dispatch({ kind: "delete", name: entry.name });
