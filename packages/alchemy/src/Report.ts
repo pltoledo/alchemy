@@ -18,9 +18,12 @@ export type ApplyStatus =
   | "created"
   | "updating"
   | "updated"
+  | "adopting"
+  | "adopted"
   | "deleting"
   | "deleted"
-  | "retained"
+  | "orphaning"
+  | "orphaned"
   | "replacing"
   | "replaced"
   // Action lifecycle (see {@link Action})
@@ -74,7 +77,14 @@ export interface PlannedResource {
   readonly logicalId: string;
   readonly resourceType: string;
   /** The action the plan decided for this resource. */
-  readonly action: "create" | "update" | "replace" | "delete" | "noop";
+  readonly action:
+    | "create"
+    | "update"
+    | "adopted"
+    | "replace"
+    | "delete"
+    | "orphaned"
+    | "noop";
   /** Binding rows the node carries; empty when the resource has none. */
   readonly bindings: ReadonlyArray<PlannedBinding>;
   /** Mode the node's provider resolved for; absent for mode-agnostic providers. */

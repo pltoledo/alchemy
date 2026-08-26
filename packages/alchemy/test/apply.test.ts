@@ -2614,8 +2614,11 @@ describe("retain removal policy on replace", () => {
         }).pipe(stack.deploy);
         expect((yield* getState("A"))?.status).toEqual("created");
 
-        // Destroy removes the resource from the stack (orphan delete). Retain
-        // (persisted in state) must skip provider.delete and just drop state.
+        const plan = yield* Effect.void.pipe(stack.plan);
+        expect(plan.deletions.A?.action).toBe("orphaned");
+
+        // Destroy removes the resource from the stack. The explicit orphaned
+        // action must skip provider.delete and just drop state.
         yield* stack.destroy().pipe(
           hook({
             delete: (id) =>
@@ -5667,9 +5670,9 @@ describe("engine-level adoption persists at apply, not plan (issue #793)", () =>
           Effect.provide(adoptHooks),
         );
 
-        // The adopted state rides on the plan node as a forced update (so the
+        // The adopted state rides on an explicit plan node (which still
         // provider re-syncs ownership tags / config) — it is not persisted.
-        expect(plan.resources.Adopted!.action).toBe("update");
+        expect(plan.resources.Adopted!.action).toBe("adopted");
         expect(plan.resources.Adopted!.state?.status).toBe("created");
 
         // The critical invariant of #793: planning persisted nothing, so a

@@ -207,7 +207,7 @@ export const apply = <P extends Plan>(
           type: string;
           status: Extract<
             ApplyStatus,
-            "created" | "updated" | "ran" | "skipped"
+            "created" | "updated" | "adopted" | "ran" | "skipped"
           >;
           providerMode?: ProviderMode;
         }
@@ -375,7 +375,10 @@ const executePlan = Effect.fn(function* (
       fqn: string;
       id: string;
       type: string;
-      status: Extract<ApplyStatus, "created" | "updated" | "ran" | "skipped">;
+      status: Extract<
+        ApplyStatus,
+        "created" | "updated" | "adopted" | "ran" | "skipped"
+      >;
       providerMode?: ProviderMode;
     }
   >,
@@ -557,7 +560,7 @@ const executeNode = (
       fqn: string;
       id: string;
       type: string;
-      status: Extract<ApplyStatus, "created" | "updated">;
+      status: Extract<ApplyStatus, "created" | "updated" | "adopted">;
       providerMode?: ProviderMode;
     }
   >,
@@ -957,7 +960,7 @@ const executeNode = (
       }
 
       // ── update ──
-      if (node.action === "update") {
+      if (node.action === "update" || node.action === "adopted") {
         // Cycle members publish their previous live attr *before* waiting on
         // upstreams so the SCC can converge — peers in the cycle would
         // otherwise deadlock waiting on each other. Phase 3 (`converge`)
@@ -1022,7 +1025,7 @@ const executeNode = (
               providerMode: node.mode,
             });
 
-        yield* report("updating");
+        yield* report(node.action === "adopted" ? "adopting" : "updating");
 
         const previousProps = adopting
           ? undefined
@@ -1100,7 +1103,18 @@ const executeNode = (
         yield* signalReady;
         yield* signalReadyStable;
 
-        yield* markTerminal("updated");
+        if (node.action === "adopted") {
+          terminalStatuses.set(fqn, {
+            fqn,
+            id: logicalId,
+            type: node.resource.Type,
+            status: "adopted",
+            providerMode: node.mode,
+          });
+          if (!inCycle) yield* report("adopted");
+        } else {
+          yield* markTerminal("updated");
+        }
         return;
       }
 
@@ -1365,7 +1379,6 @@ const executeNode = (
         return;
       }
 
-      // @ts-expect-error - node is never, this should be unreachable
       return yield* Effect.die(`Unknown action: ${node.action}`);
     });
   }).pipe(
@@ -1446,7 +1459,10 @@ const executeActionNode = (
       fqn: string;
       id: string;
       type: string;
-      status: Extract<ApplyStatus, "created" | "updated" | "ran" | "skipped">;
+      status: Extract<
+        ApplyStatus,
+        "created" | "updated" | "adopted" | "ran" | "skipped"
+      >;
       providerMode?: ProviderMode;
     }
   >,
@@ -1621,7 +1637,10 @@ const converge = Effect.fn(function* (
       fqn: string;
       id: string;
       type: string;
-      status: Extract<ApplyStatus, "created" | "updated" | "ran" | "skipped">;
+      status: Extract<
+        ApplyStatus,
+        "created" | "updated" | "adopted" | "ran" | "skipped"
+      >;
       providerMode?: ProviderMode;
     }
   >,
@@ -1743,7 +1762,7 @@ const converge = Effect.fn(function* (
         fqn,
         id: logicalId,
         type: node.resource.Type,
-        status: "updated",
+        status: node.action === "adopted" ? "adopted" : "updated",
         providerMode: node.mode,
       });
     }
@@ -2108,14 +2127,16 @@ const collectGarbage = Effect.fn(function* (
         function deleteResourceBody() {
           return Effect.gen(function* () {
             if (isDeleteNode(node)) {
-              yield* report("deleting");
-              if (node.resource.RemovalPolicy === "retain") {
+              yield* report(
+                node.action === "orphaned" ? "orphaning" : "deleting",
+              );
+              if (node.action === "orphaned") {
                 yield* state.delete({
                   stack: stackName,
                   stage,
                   fqn,
                 });
-                yield* report("retained");
+                yield* report("orphaned");
                 // Retention is intentional — it never blocks dependencies.
                 return "deleted" as const;
               }

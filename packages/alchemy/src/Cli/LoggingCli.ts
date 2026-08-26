@@ -40,8 +40,10 @@ const cyan = hex(theme.color.info);
 const actionColor: Record<CRUD["action"], (s: string) => string> = {
   create: hex(actionStyle.create.color),
   update: hex(actionStyle.update.color),
+  adopted: hex(actionStyle.adopted.color),
   replace: hex(actionStyle.replace.color),
   delete: hex(actionStyle.delete.color),
+  orphaned: hex(actionStyle.orphaned.color),
   noop: dim,
 };
 
@@ -51,9 +53,12 @@ const statusColor = (status: ApplyStatus): ((s: string) => string) => {
     case "updated":
     case "replaced":
       return green;
+    case "adopted":
+      return yellow;
     case "deleted":
       return dim;
-    case "retained":
+    case "orphaned":
+      return green;
     case "skipped":
       return dim;
     case "fail":
@@ -80,7 +85,9 @@ const isActive = (status: ApplyStatus): boolean =>
   status === "creating" ||
   status === "creating replacement" ||
   status === "updating" ||
+  status === "adopting" ||
   status === "deleting" ||
+  status === "orphaning" ||
   status === "replacing" ||
   status === "running";
 
@@ -124,7 +131,9 @@ export const formatPlanLines = (
       item.bindings.filter((binding) => binding.action !== "noop").length,
     0,
   );
-  const summaryParts = (["create", "update", "replace", "delete"] as const)
+  const summaryParts = (
+    ["create", "update", "adopted", "replace", "delete", "orphaned"] as const
+  )
     .filter((a) => counts[a])
     .map((a) => actionColor[a](`${counts[a]} to ${a}`));
   if (bindingChanges > 0) {
@@ -158,27 +167,32 @@ export const formatPlanLines = (
     // reconciles. (Only apply-side nodes can carry a rename — see
     // `ApplyNodeBase`.)
     const renamed =
-      item.action !== "delete" && item.renamedFrom?.length
+      "renamedFrom" in item && item.renamedFrom?.length
         ? ` ${dim(`(renamed from ${item.renamedFrom.join(", ")})`)}`
         : "";
     lines.push(`${tag(item.resource.LogicalId)} ${action}${mode}${renamed}`);
     for (const binding of [...item.bindings].sort((a, b) =>
       a.sid.localeCompare(b.sid),
     )) {
+      const bindingAction =
+        binding.action === "delete"
+          ? dim("unbind")
+          : actionColor[binding.action](binding.action);
       lines.push(
-        `${tag(`${item.resource.LogicalId}/${binding.sid}`)} ${actionColor[binding.action](binding.action)}`,
+        `${tag(`${item.resource.LogicalId}/${binding.sid}`)} ${bindingAction}`,
       );
     }
     if (
       options.detailed &&
       (item.action === "create" ||
         item.action === "update" ||
+        item.action === "adopted" ||
         item.action === "replace")
     ) {
       const document = formatDeclaredPropertyYaml(
         item.action === "create" ? {} : item.state.props,
         item.props,
-        item.action,
+        item.action === "adopted" ? "update" : item.action,
       );
       if (document === undefined) {
         lines.push(`  ${dim("no declared property changes")}`);

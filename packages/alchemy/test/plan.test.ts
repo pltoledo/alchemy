@@ -3371,11 +3371,11 @@ describe("engine-level adoption", () => {
         { readHook: () => Effect.succeed(ownedAttrs) },
       );
 
-      // Cold-start adoption forces an update so the provider can re-sync
+      // Cold-start adoption is surfaced explicitly while the provider re-syncs
       // tags / config against `news` — even when read returns plain
       // (owned) attrs, the cloud resource may carry drift the engine
       // can't detect from `props` alone.
-      expect(plan.resources.Adopted!.action).toBe("update");
+      expect(plan.resources.Adopted!.action).toBe("adopted");
       expect(plan.resources.Adopted).toMatchObject({
         adopting: true,
         state: {
@@ -3414,11 +3414,11 @@ describe("engine-level adoption", () => {
         },
       );
 
-      // Takeover of an Unowned resource forces `update` so the provider's
+      // Takeover of an Unowned resource is planned as `adopted` so the provider's
       // update path can rewrite ownership tags / config to match this
       // logical id (a plain noop would leave the resource looking
       // foreign-owned to subsequent deploys).
-      expect(plan.resources.Adopted!.action).toBe("update");
+      expect(plan.resources.Adopted!.action).toBe("adopted");
       expect(plan.resources.Adopted).toMatchObject({
         adopting: true,
         state: { status: "created" },
@@ -3501,7 +3501,7 @@ describe("engine-level adoption", () => {
         },
       );
 
-      expect(plan.resources.Adopted!.action).toBe("update");
+      expect(plan.resources.Adopted!.action).toBe("adopted");
       expect(plan.resources.Adopted).toMatchObject({
         adopting: true,
         state: { status: "created" },

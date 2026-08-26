@@ -39,7 +39,9 @@ export interface TreeNode {
 export type DerivedAction =
   | "create"
   | "update"
+  | "adopted"
   | "delete"
+  | "orphaned"
   | "replace"
   | "noop"
   | "mixed";
@@ -206,11 +208,12 @@ const flattenNamespace = (
         options.includePropertyYaml &&
         (resource.action === "create" ||
           resource.action === "update" ||
+          resource.action === "adopted" ||
           resource.action === "replace")
           ? formatDeclaredPropertyYaml(
               resource.action === "create" ? {} : resource.state.props,
               resource.props,
-              resource.action,
+              resource.action === "adopted" ? "update" : resource.action,
             )
           : undefined,
     });
@@ -274,8 +277,10 @@ const deriveAction = (
 ): DerivedAction => {
   if (actions.size === 0) return "noop";
   if (actions.has("replace")) return actions.size === 1 ? "replace" : "mixed";
+  if (actions.has("orphaned")) return actions.size === 1 ? "orphaned" : "mixed";
   if (actions.has("delete")) return actions.size === 1 ? "delete" : "mixed";
   if (actions.has("create")) return actions.size === 1 ? "create" : "mixed";
+  if (actions.has("adopted")) return actions.size === 1 ? "adopted" : "mixed";
   if (actions.has("update")) return actions.size === 1 ? "update" : "mixed";
   return "noop";
 };

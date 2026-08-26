@@ -128,7 +128,13 @@ interface PlanViewState {
 
 export interface PlanSummaryCounts {
   readonly counts: Record<
-    "create" | "update" | "delete" | "replace" | "noop",
+    | "create"
+    | "update"
+    | "adopted"
+    | "delete"
+    | "orphaned"
+    | "replace"
+    | "noop",
     number
   >;
   readonly taskCounts: Record<"run" | "delete" | "noop", number>;
@@ -215,7 +221,15 @@ const buildSummary = (plan: AlchemyPlan): PlanSummaryCounts => {
     ...Object.values(plan.resources),
     ...Object.values(plan.deletions),
   ].filter((item): item is CRUD => item !== undefined);
-  const counts = { create: 0, update: 0, delete: 0, noop: 0, replace: 0 };
+  const counts = {
+    create: 0,
+    update: 0,
+    adopted: 0,
+    delete: 0,
+    orphaned: 0,
+    noop: 0,
+    replace: 0,
+  };
   for (const item of allItems.filter(resourceHasPlannedWork)) {
     counts[item.action]++;
   }
@@ -387,7 +401,11 @@ const rowLines = (row: PlanRow, detailed: boolean): number => {
   if (row.type !== "resource" || !detailed) return 1;
   if (row.propertyYaml !== undefined) return 1 + row.propertyYaml.lines.length;
   // detailed update/replace with no declared changes renders one note line
-  return row.action === "update" || row.action === "replace" ? 2 : 1;
+  return row.action === "update" ||
+    row.action === "adopted" ||
+    row.action === "replace"
+    ? 2
+    : 1;
 };
 
 /** Rows from `offset` that fit a line budget (always at least one row). */
@@ -614,11 +632,21 @@ function PlanRowView(props: {
 
   if (row.type === "binding") {
     if (mode === "review") {
-      const style = namespaceStyle(row.action);
+      const style =
+        row.action === "delete"
+          ? { color: theme.color.muted, icon: "delete" as const }
+          : namespaceStyle(row.action);
       return (
         <Row gap={1} paddingLeft={row.depth * 2}>
           <Text color={style.color}>{glyphs[style.icon]}</Text>
-          <Text color={theme.color.info}>{row.id}</Text>
+          <Text
+            color={
+              row.action === "delete" ? theme.color.muted : theme.color.info
+            }
+          >
+            {row.id}
+          </Text>
+          {row.action === "delete" ? <Text tone="muted">(unbind)</Text> : null}
         </Row>
       );
     }
@@ -628,7 +656,18 @@ function PlanRowView(props: {
       row.action === "noop" && (status === "created" || status === "updated")
         ? ("no change" as const)
         : status;
-    const color = applyStatusColor(displayStatus);
+    const color =
+      row.action === "delete"
+        ? theme.color.muted
+        : applyStatusColor(displayStatus);
+    const bindingStatus =
+      row.action !== "delete"
+        ? displayStatus
+        : status === "deleted"
+          ? "unbound"
+          : status === "deleting"
+            ? "unbinding"
+            : "unbind";
     return (
       <TaskRow
         spinning={isInProgress(status)}
@@ -640,11 +679,19 @@ function PlanRowView(props: {
               : glyphs.success
         }
         iconColor={color}
-        label={<Text color={theme.color.info}>{row.id}</Text>}
+        label={
+          <Text
+            color={
+              row.action === "delete" ? theme.color.muted : theme.color.info
+            }
+          >
+            {row.id}
+          </Text>
+        }
         detail={rowDetail(status, state?.message)}
         depth={row.depth}
       >
-        <Text color={color}>{displayStatus}</Text>
+        <Text color={color}>{bindingStatus}</Text>
         {state?.elapsedMs === undefined ? null : (
           <Text tone="muted">({formatElapsed(state.elapsedMs)})</Text>
         )}
@@ -697,7 +744,9 @@ function PlanRowView(props: {
   });
   const yaml = detailed ? (
     row.propertyYaml === undefined ? (
-      row.action === "update" || row.action === "replace" ? (
+      row.action === "update" ||
+      row.action === "adopted" ||
+      row.action === "replace" ? (
         <Box paddingLeft={row.depth * 2 + 2}>
           <Text tone="muted" dimColor>
             no declared property changes
@@ -722,7 +771,13 @@ function PlanRowView(props: {
         <TaskRow
           icon={glyphs[style.icon]}
           iconColor={style.color}
-          label={row.id}
+          label={
+            row.action === "orphaned" ? (
+              <Text tone="muted">{row.id}</Text>
+            ) : (
+              row.id
+            )
+          }
           depth={row.depth}
         >
           {modeNote && <Text tone="muted">({modeNote})</Text>}
@@ -745,12 +800,21 @@ function PlanRowView(props: {
             ? glyphs.bullet
             : rowState.status === "fail"
               ? glyphs.error
-              : glyphs.success
+              : rowState.status === "adopted"
+                ? glyphs.adopt
+                : rowState.status === "orphaned"
+                  ? glyphs.orphan
+                  : glyphs.success
         }
         iconColor={color}
         label={
           <>
-            {row.id} <Text tone="muted">({row.resourceType})</Text>
+            {row.action === "orphaned" ? (
+              <Text tone="muted">{row.id}</Text>
+            ) : (
+              row.id
+            )}{" "}
+            <Text tone="muted">({row.resourceType})</Text>
           </>
         }
         detail={rowDetail(rowState.status, rowState.message)}
@@ -772,7 +836,9 @@ function PlanRowView(props: {
 function ReviewSummary(props: { summary: PlanSummaryCounts }): JSX.Element {
   const { counts, taskCounts, bindingChanges } = props.summary;
   const parts = [
-    ...(["create", "update", "delete", "replace"] as const)
+    ...(
+      ["create", "update", "adopted", "delete", "orphaned", "replace"] as const
+    )
       .filter((action) => counts[action] > 0)
       .map((action) => ({
         key: action,
@@ -860,7 +926,7 @@ const resourceDisplayStatus = (
 
 const taskLabel = (action: ActionVerb, status: ApplyStatus): string =>
   action === "delete"
-    ? status === "deleted" || status === "retained"
+    ? status === "deleted" || status === "orphaned"
       ? status
       : "drop"
     : status === "ran"
@@ -885,7 +951,7 @@ function taskIcon(
   if (status === "skipped") return glyphs.bullet;
   if (status === "ran")
     return action === "noop" ? glyphs.bullet : glyphs.success;
-  if (status === "deleted" || status === "retained") return glyphs.success;
+  if (status === "deleted" || status === "orphaned") return glyphs.success;
   if (action === "delete") return glyphs[actionStyle.delete.icon];
   if (action === "noop") return glyphs[actionStyle.noop.icon];
   return glyphs[actionStyle.run.icon];

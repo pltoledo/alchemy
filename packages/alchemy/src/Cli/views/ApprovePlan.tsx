@@ -27,7 +27,9 @@ export interface ApprovePlanProps {
  */
 export function ApprovePlan(props: ApprovePlanProps): JSX.Element {
   const { plan, detailed = false, controller } = props;
-  const [approved, setApproved] = useState(true);
+  // Destruction is the risky path: require an explicit move to Yes before
+  // Enter can remove or orphan resources. Deploy approvals remain Yes-first.
+  const [approved, setApproved] = useState(!plan.destroy);
   const glyphs = useGlyphs();
   const keys = useKeyGlyphs();
   const { rows } = useTerminalSize();

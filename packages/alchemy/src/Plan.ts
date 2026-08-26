@@ -84,8 +84,11 @@ export const isCRUD = (node: any): node is CRUD => {
     typeof node === "object" &&
     (node.action === "create" ||
       node.action === "update" ||
+      node.action === "adopted" ||
       node.action === "replace" ||
-      node.action === "noop")
+      node.action === "delete" ||
+      node.action === "noop" ||
+      node.action === "orphaned")
   );
 };
 
@@ -162,7 +165,7 @@ export interface Create<
 export interface Update<
   R extends ResourceLike = ResourceLike,
 > extends ApplyNodeBase<R> {
-  action: "update";
+  action: "update" | "adopted";
   /** True while this is the first reconcile after a cold adoption. */
   adopting?: boolean;
   props: R["Props"];
@@ -178,7 +181,7 @@ export interface Update<
 export interface Delete<
   R extends ResourceLike = ResourceLike,
 > extends BaseNode<R> {
-  action: "delete";
+  action: "delete" | "orphaned";
   // a resource can be deleted no matter what state it's in
   state: ResourceState;
 }
@@ -1664,7 +1667,7 @@ export const make = <A>(
       } else if (diff.action === "update") {
         // Stable created/updated resources follow the normal CRUD mapping.
         return Node<Update>({
-          action: "update",
+          action: forceUpdateAfterAdoption ? "adopted" : "update",
           adopting: forceUpdateAfterAdoption,
           props: applyProps,
           state: oldState,
@@ -1994,7 +1997,7 @@ export const make = <A>(
         return [
           fqn,
           {
-            action: "delete",
+            action: oldState.removalPolicy === "retain" ? "orphaned" : "delete",
             state: oldState,
             provider: provider,
             mode: oldState.providerMode,
@@ -2161,8 +2164,12 @@ export const printPlan = (plan: Plan): string => {
         return "+";
       case "update":
         return "~";
+      case "adopted":
+        return "(+)";
       case "delete":
         return "-";
+      case "orphaned":
+        return "(-)";
       case "replace":
         return "±";
       case "noop":

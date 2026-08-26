@@ -32,8 +32,10 @@ export type StackModuleOutput<Module> = Module extends {
 export interface PlanSummary {
   readonly create: number;
   readonly update: number;
+  readonly adopted: number;
   readonly replace: number;
   readonly delete: number;
+  readonly orphaned: number;
   readonly noop: number;
 }
 
@@ -57,19 +59,27 @@ export interface PlanSnapshot<Output = unknown> {
 
 /** Whether a plan proposes any cloud mutations (i.e. approval-worthy work). */
 export const hasChanges = (summary: PlanSummary): boolean =>
-  summary.create + summary.update + summary.replace + summary.delete > 0;
+  summary.create +
+    summary.update +
+    summary.adopted +
+    summary.replace +
+    summary.delete +
+    summary.orphaned >
+  0;
 
 export const summarize = (plan: Plan.Plan): PlanSummary => {
   const summary: { -readonly [K in keyof PlanSummary]: PlanSummary[K] } = {
     create: 0,
     update: 0,
+    adopted: 0,
     replace: 0,
     delete: 0,
+    orphaned: 0,
     noop: 0,
   };
   for (const node of Object.values(plan.resources)) summary[node.action]++;
   for (const node of Object.values(plan.deletions)) {
-    if (node !== undefined) summary.delete++;
+    if (node !== undefined) summary[node.action]++;
   }
   return summary;
 };

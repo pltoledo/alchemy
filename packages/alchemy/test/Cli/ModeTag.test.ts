@@ -161,6 +161,24 @@ describe("formatPlanLines rename tags", () => {
 });
 
 describe("compact plan output", () => {
+  test("surfaces adoption and intentional orphaning as distinct actions", () => {
+    const lines = formatPlanLines(
+      makePlan({
+        resources: {
+          Existing: crud({ id: "Existing", action: "adopted" }),
+        },
+        deletions: {
+          Preserved: crud({ id: "Preserved", action: "orphaned" }),
+        },
+      }),
+    );
+
+    expect(lineFor(lines, "Existing")).toContain("adopted");
+    expect(lineFor(lines, "Preserved")).toContain("orphaned");
+    expect(lines[0]).toContain("1 to adopted");
+    expect(lines[0]).toContain("1 to orphaned");
+  });
+
   test("targets live status updates by FQN when logical IDs repeat", () => {
     const store = new PlanViewStore(
       makePlan({

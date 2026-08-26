@@ -10,7 +10,9 @@ import { theme, type GlyphName } from "../CliKit/index.ts";
 export type PlanAction =
   | "create"
   | "update"
+  | "adopted"
   | "delete"
+  | "orphaned"
   | "replace"
   | "noop"
   | "mixed"
@@ -22,7 +24,9 @@ export const actionStyle: Record<
 > = {
   create: { color: theme.color.success, icon: "add" },
   update: { color: theme.color.warning, icon: "edit" },
+  adopted: { color: theme.color.warning, icon: "adopt" },
   delete: { color: theme.color.danger, icon: "delete" },
+  orphaned: { color: theme.color.success, icon: "orphan" },
   replace: { color: theme.color.warning, icon: "replace" },
   noop: { color: theme.color.muted, icon: "bullet" },
   mixed: { color: theme.color.info, icon: "info" },
@@ -35,7 +39,6 @@ export const applyStatusColor = (
   switch (status) {
     case "no change":
     case "pending":
-    case "retained":
     case "skipped":
       return theme.color.muted;
     case "attaching":
@@ -45,11 +48,15 @@ export const applyStatusColor = (
     case "creating":
     case "creating replacement":
     case "created":
+    case "orphaning":
+    case "orphaned":
       return theme.color.success;
     case "updating":
+    case "adopting":
     case "replacing":
     case "replaced":
     case "updated":
+    case "adopted":
       return theme.color.warning;
     case "deleting":
     case "deleted":
@@ -68,8 +75,9 @@ export const applyStatusColor = (
 export const isTerminalStatus = (status: ApplyStatus): boolean =>
   status === "created" ||
   status === "updated" ||
+  status === "adopted" ||
   status === "deleted" ||
-  status === "retained" ||
+  status === "orphaned" ||
   status === "replaced" ||
   status === "ran" ||
   status === "skipped" ||
@@ -82,6 +90,8 @@ export const isInProgress = (status: ApplyStatus): boolean =>
   status === "creating" ||
   status === "creating replacement" ||
   status === "updating" ||
+  status === "adopting" ||
   status === "deleting" ||
+  status === "orphaning" ||
   status === "replacing" ||
   status === "running";
