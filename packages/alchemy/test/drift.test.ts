@@ -637,6 +637,7 @@ describe("plan", () => {
 
         // drifted -> update, missing -> create, unchanged -> noop
         expect(plan.resources.Clean?.action).toEqual("noop");
+        expect(plan.resources.Clean?.drift).toBeUndefined();
         expect(plan.resources.Drifted?.action).toEqual("update");
         expect(plan.resources.Missing?.action).toEqual("create");
         expect(plan.resources.Drifted).toMatchObject({

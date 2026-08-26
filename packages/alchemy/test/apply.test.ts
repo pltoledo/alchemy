@@ -72,6 +72,29 @@ const listState = Effect.fn(function* () {
   return yield* state.list({ stack: stk.name, stage: stk.stage });
 });
 
+const recordingCli = (events: Array<{ id: string; status: string }>) =>
+  Cli.of({
+    startPlanningSession: () =>
+      Effect.succeed({
+        update: () => Effect.void,
+        succeed: () => Effect.void,
+        fail: () => Effect.void,
+        close: Effect.void,
+      }),
+    approvePlan: () => Effect.succeed(true),
+    displayPlan: () => Effect.void,
+    startApplySession: () =>
+      Effect.succeed({
+        done: () => Effect.void,
+        emit: (event) =>
+          Effect.sync(() => {
+            if (event._tag === "apply.resource.status") {
+              events.push({ id: event.id, status: event.status });
+            }
+          }),
+      }),
+  });
+
 const expectConvergedStatus = (status: ResourceState["status"] | undefined) => {
   expect(["created", "updated"]).toContain(status);
 };
@@ -2606,6 +2629,7 @@ describe("retain removal policy on replace", () => {
     (stack) =>
       Effect.gen(function* () {
         const deleted: string[] = [];
+        const events: Array<{ id: string; status: string }> = [];
 
         yield* Effect.gen(function* () {
           yield* TestResource("A", { string: "v1" }).pipe(
@@ -2626,10 +2650,16 @@ describe("retain removal policy on replace", () => {
                 deleted.push(id);
               }),
           }),
+          Effect.provide(Layer.succeed(Cli, recordingCli(events))),
         );
 
         expect(deleted).not.toContain("A");
         expect(yield* getState("A")).toBeUndefined();
+        expect(
+          events
+            .filter((event) => event.id === "A")
+            .map((event) => event.status),
+        ).toEqual(["orphaning", "orphaned"]);
       }),
   );
 
@@ -5655,19 +5685,23 @@ describe("engine-level adoption persists at apply, not plan (issue #793)", () =>
     redactedArray: undefined,
   };
 
-  const adoptHooks = Layer.succeed(TestResourceHooks, {
-    read: () => Effect.succeed(Unowned(ownedAttrs)),
-  });
-
   test.provider(
     "a dry-run plan writes nothing to the state store; applying persists",
     (stack) =>
       Effect.gen(function* () {
+        const events: Array<{ id: string; status: string }> = [];
+        let creates = 0;
+        let updates = 0;
+        const hooks = Layer.succeed(TestResourceHooks, {
+          read: () => Effect.succeed(Unowned(ownedAttrs)),
+          create: () => Effect.sync(() => creates++),
+          update: () => Effect.sync(() => updates++),
+        });
         // ── dry-run: build a plan that adopts the unowned cloud resource ──
         const plan = yield* TestResource("Adopted", { string: "hello" }).pipe(
           adopt(true),
           stack.plan,
-          Effect.provide(adoptHooks),
+          Effect.provide(hooks),
         );
 
         // The adopted state rides on an explicit plan node (which still
@@ -5686,13 +5720,25 @@ describe("engine-level adoption persists at apply, not plan (issue #793)", () =>
         yield* TestResource("Adopted", { string: "hello" }).pipe(
           adopt(true),
           stack.deploy,
-          Effect.provide(adoptHooks),
+          Effect.provide(hooks),
+          Effect.provide(Layer.succeed(Cli, recordingCli(events))),
         );
 
         // Applying DOES persist the adopted state.
         const persisted = yield* getState("Adopted");
         expect(["created", "updated"]).toContain(persisted?.status);
         expect(yield* listState()).toEqual(["Adopted"]);
+        // Adoption is the reconciler's `output defined, olds undefined` path.
+        expect(creates).toBe(1);
+        expect(updates).toBe(0);
+        const statuses = events
+          .filter((event) => event.id === "Adopted")
+          .map((event) => event.status);
+        expect(statuses).toContain("adopting");
+        expect(statuses).toContain("adopted");
+        expect(statuses.indexOf("adopting")).toBeLessThan(
+          statuses.indexOf("adopted"),
+        );
       }),
   );
 });

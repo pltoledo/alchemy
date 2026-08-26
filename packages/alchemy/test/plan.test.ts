@@ -641,7 +641,7 @@ test(
 );
 
 test(
-  "delete orphaned resources",
+  "plan retained resources as orphaned",
   Effect.gen(function* () {
     yield* seed({
       MyBucket: {
@@ -660,6 +660,7 @@ test(
         },
         bindings: [],
         downstream: [],
+        removalPolicy: "retain",
       },
       MyQueue: {
         instanceId,
@@ -699,7 +700,7 @@ test(
       },
       deletions: {
         MyBucket: {
-          action: "delete",
+          action: "orphaned",
           bindings: [],
           state: {
             status: "created",
