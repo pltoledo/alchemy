@@ -1,16 +1,16 @@
 /** @jsxImportSource react */
 import { useMemo, useState, type JSX } from "react";
 import {
-  BooleanChoice,
+  ChoiceGroup,
   Box,
   KeyBar,
   Text,
   useGlyphs,
   useKeyGlyphs,
   useTerminalInput,
-} from "../CliKit/components.ts";
-import { Screen, theme, type ScreenController } from "../CliKit/index.ts";
-import type { Plan as AlchemyPlan } from "../../Plan.ts";
+} from "../ui/index.ts";
+import { Screen, theme, type ScreenController } from "../../CliKit/index.ts";
+import type { Plan as AlchemyPlan } from "../../../Plan.ts";
 import { Plan, PlanView, PlanViewStore } from "./PlanView.tsx";
 
 export interface ApprovePlanProps {
@@ -58,8 +58,7 @@ export function ApprovePlan(props: ApprovePlanProps): JSX.Element {
   };
 
   useTerminalInput((input, key) => {
-    if (key.left || key.right || key.tab) setApproved((current) => !current);
-    else if (key.enter) complete(approved);
+    if (key.enter) complete(approved);
     else if (key.escape) controller.cancel();
     else if (key.ctrl || key.meta) return;
     else if (input.toLowerCase() === "y") complete(true);
@@ -76,10 +75,13 @@ export function ApprovePlan(props: ApprovePlanProps): JSX.Element {
       />
       <Box flexDirection="column" marginTop={1}>
         <Text bold>{action}?</Text>
-        <BooleanChoice
+        <ChoiceGroup
           value={approved}
-          trueLabel={action}
-          falseLabel="Cancel"
+          choices={[
+            { value: true, label: action },
+            { value: false, label: "Cancel" },
+          ]}
+          onChange={setApproved}
         />
         <KeyBar
           keys={[

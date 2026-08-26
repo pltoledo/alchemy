@@ -11,12 +11,12 @@ import type {
   ScreenController,
   SelectOptions,
   TextInputOptions,
-} from "./types.ts";
-import { theme } from "./theme.ts";
-import { useGlyphs, useKeyGlyphs } from "./components/Environment.tsx";
-import { Alert } from "./components/Feedback.tsx";
+} from "../types.ts";
+import { theme } from "../../CliKit/theme.ts";
+import { useGlyphs, useKeyGlyphs } from "../ui/Environment.tsx";
+import { Alert } from "../ui/Feedback.tsx";
 import {
-  BooleanChoice,
+  ChoiceGroup,
   filterChoices,
   CycleList,
   ExternalWait,
@@ -34,10 +34,10 @@ import {
   useTerminalSize,
   useCycleNavigation,
   type TerminalKey,
-} from "./components/Interactive.tsx";
-import { Box } from "./components/Layout.tsx";
-import { AnsweredPrompt } from "./components/Transcript.tsx";
-import { Text } from "./components/Typography.tsx";
+} from "../ui/Interactive.tsx";
+import { Box } from "../ui/Layout.tsx";
+import { AnsweredPrompt } from "../ui/Transcript.tsx";
+import { Text } from "../ui/Typography.tsx";
 
 const errorMessage = (value: string | Error | undefined) =>
   value instanceof Error ? value.message : value;
@@ -735,10 +735,12 @@ function ConfirmPrompt({ options, submit, cancel }: ConfirmPromptProps) {
         [keys.escape, "cancel"],
       ]}
     >
-      <BooleanChoice
+      <ChoiceGroup
         value={value}
-        trueLabel={options.confirmLabel}
-        falseLabel={options.cancelLabel}
+        choices={[
+          { value: true, label: options.confirmLabel ?? "Yes" },
+          { value: false, label: options.cancelLabel ?? "No" },
+        ]}
       />
     </PromptFrame>
   );

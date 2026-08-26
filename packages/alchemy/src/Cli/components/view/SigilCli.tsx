@@ -4,11 +4,11 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Scope from "effect/Scope";
-import type { Plan } from "../../Plan.ts";
-import { type PlanStatusSession, Cli } from "../../Report.ts";
-import { CliKit } from "../CliKit/index.ts";
-import type { ApplyEvent } from "../../Report.ts";
-import { formatElapsed } from "../Format.ts";
+import type { Plan } from "../../../Plan.ts";
+import { type PlanStatusSession, Cli } from "../../../Report.ts";
+import { CliKit } from "../../CliKit/index.ts";
+import type { ApplyEvent } from "../../../Report.ts";
+import { formatElapsed } from "../../Format.ts";
 import { approvePlanScreen } from "./ApprovePlan.tsx";
 import { Plan as PlanComponent, PlanView, PlanViewStore } from "./PlanView.tsx";
 
@@ -30,7 +30,7 @@ export const sigilCli = () =>
 const approvePlan = Effect.fn(function* <P extends Plan>(
   cli: CliKit["Service"],
   plan: P,
-  options?: import("../../Report.ts").PlanDisplayOptions,
+  options?: import("../../../Report.ts").PlanDisplayOptions,
 ) {
   return yield* cli.prompt
     .custom(approvePlanScreen(plan, options?.detailed))
@@ -43,7 +43,7 @@ const approvePlan = Effect.fn(function* <P extends Plan>(
 const displayPlan = Effect.fn(function* <P extends Plan>(
   cli: CliKit["Service"],
   plan: P,
-  options?: import("../../Report.ts").PlanDisplayOptions,
+  options?: import("../../../Report.ts").PlanDisplayOptions,
 ) {
   yield* cli.output.print(
     <PlanComponent plan={plan} detailed={options?.detailed} />,
@@ -104,7 +104,7 @@ const startPlanningSession = Effect.fn(function* (
 const startApplySession = Effect.fn(function* <P extends Plan>(
   cli: CliKit["Service"],
   plan: P,
-  options?: import("../../Report.ts").PlanDisplayOptions,
+  options?: import("../../../Report.ts").PlanDisplayOptions,
 ) {
   // Detailed applies render their YAML diffs inline in the progress tree;
   // persistOnClose keeps the final full render (diffs included) in

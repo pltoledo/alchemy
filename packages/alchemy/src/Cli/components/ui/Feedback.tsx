@@ -6,7 +6,7 @@ import {
   statusPaint,
   theme,
   type StatusVariant,
-} from "../theme.ts";
+} from "../../CliKit/theme.ts";
 import {
   useBorderStyle,
   useCliEnvironment,

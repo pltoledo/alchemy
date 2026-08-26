@@ -10,7 +10,7 @@ export {
   useCliEnvironment,
   useGlyphs,
   useKeyGlyphs,
-} from "./components/Environment.tsx";
+} from "./Environment.tsx";
 export {
   Box,
   Gutter,
@@ -22,13 +22,8 @@ export {
   type BoxProps,
   type RowProps,
   type StackProps,
-} from "./components/Layout.tsx";
-export {
-  Link,
-  Text,
-  type TextProps,
-  type TextTone,
-} from "./components/Typography.tsx";
+} from "./Layout.tsx";
+export { Link, Text, type TextProps, type TextTone } from "./Typography.tsx";
 export {
   Alert,
   KeyBar,
@@ -41,25 +36,25 @@ export {
   type AlertProps,
   type StatusProps,
   type ToastProps,
-} from "./components/Feedback.tsx";
-export { DescriptionList, type DescriptionItem } from "./components/Data.tsx";
+} from "./Feedback.tsx";
+export { DescriptionList, type DescriptionItem } from "./Data.tsx";
 export {
-  BooleanChoice,
+  ChoiceGroup,
   CycleList,
   InlineConfirm,
   PromptFrame,
-  SegmentedChoice,
   TextField,
   useCycleNavigation,
   useTerminalInput,
   useTerminalPaste,
   useTerminalSize,
   type CycleListProps,
+  type ChoiceGroupProps,
   type PromptFrameProps,
   type TerminalKey,
   type TextFieldProps,
-} from "./components/Interactive.tsx";
-export { AnsweredPrompt, CancelledPrompt } from "./components/Transcript.tsx";
+} from "./Interactive.tsx";
+export { AnsweredPrompt, CancelledPrompt } from "./Transcript.tsx";
 export {
   LiveStore,
   ProgressGroup,
@@ -67,4 +62,4 @@ export {
   useLiveStore,
   type ProgressGroupRow,
   type TaskRowProps,
-} from "./components/Live.tsx";
+} from "./Live.tsx";

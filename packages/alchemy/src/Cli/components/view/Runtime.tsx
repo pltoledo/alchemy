@@ -15,13 +15,16 @@ import {
   useTitle,
 } from "@alchemy.run/sigil";
 import { type ReactNode, useSyncExternalStore } from "react";
-import { Spinner, Status } from "./components/Feedback.tsx";
-import { CliEnvironment } from "./components/Environment.tsx";
-import { useTerminalInput } from "./components/Interactive.tsx";
-import { LiveStore, useLiveStore } from "./components/Live.tsx";
-import { CancelledPrompt } from "./components/Transcript.tsx";
-import { Text } from "./components/Typography.tsx";
-import { NonInteractiveTerminal, TerminalCancelled } from "./errors.ts";
+import { Spinner, Status } from "../ui/Feedback.tsx";
+import { CliEnvironment } from "../ui/Environment.tsx";
+import { useTerminalInput } from "../ui/Interactive.tsx";
+import { LiveStore, useLiveStore } from "../ui/Live.tsx";
+import { CancelledPrompt } from "../ui/Transcript.tsx";
+import { Text } from "../ui/Typography.tsx";
+import {
+  NonInteractiveTerminal,
+  TerminalCancelled,
+} from "../../CliKit/errors.ts";
 import {
   confirmScreen,
   cycleSelectScreen,
@@ -31,9 +34,9 @@ import {
   passwordScreen,
   selectScreen,
   textScreen,
-} from "./screens.tsx";
-import { applicationPresentation, CliKit } from "./CliKit.ts";
-import { setNativeProgress } from "./terminal.ts";
+} from "./Prompts.tsx";
+import { applicationPresentation, CliKit } from "../../CliKit/CliKit.ts";
+import { setNativeProgress } from "../../CliKit/terminal.ts";
 import type {
   ProgressHandle,
   ProgressOptions,
@@ -46,7 +49,7 @@ import type {
   LiveViewHandle,
   LiveViewOptions,
   View,
-} from "./types.ts";
+} from "../types.ts";
 
 const InApplication = Context.Reference<boolean>(
   "Alchemy::CliKit/InApplication",

@@ -16,7 +16,13 @@
  * - Property diffs (`detailed`) render in every mode, and the window is
  *   line-budget aware so multi-line rows never overflow the terminal.
  */
-import { useMemo, useState, useSyncExternalStore, type JSX } from "react";
+import {
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type JSX,
+  type ReactNode,
+} from "react";
 import { useProgress, useTitle } from "@alchemy.run/sigil";
 import {
   Box,
@@ -30,18 +36,18 @@ import {
   useGlyphs,
   useTerminalInput,
   useTerminalSize,
-} from "../CliKit/components.ts";
+} from "../ui/index.ts";
 import type {
   CRUD,
   Plan as AlchemyPlan,
   ActionApply,
   ActionDelete,
-} from "../../Plan.ts";
+} from "../../../Plan.ts";
 import type {
   ApplyEvent,
   ApplyStatus,
   ResourceStatusChanged,
-} from "../../Report.ts";
+} from "../../../Report.ts";
 import {
   actionHasPlannedWork,
   buildNamespaceTree,
@@ -49,18 +55,18 @@ import {
   resourceHasPlannedWork,
   type ActionVerb,
   type FlattenedItem,
-} from "../NamespaceTree.ts";
-import { formatModeNote } from "../ModeTag.ts";
-import { theme } from "../CliKit/index.ts";
-import type { ProviderMode } from "../../ProviderMode.ts";
-import { formatElapsed } from "../Format.ts";
+} from "../../NamespaceTree.ts";
+import { formatModeNote } from "../../ModeTag.ts";
+import { theme } from "../../CliKit/index.ts";
+import type { ProviderMode } from "../../../ProviderMode.ts";
+import { formatElapsed } from "../../Format.ts";
 import {
   actionStyle,
   applyStatusColor,
   isInProgress,
   isTerminalStatus,
 } from "./statusStyle.ts";
-import type { DeclaredPropertyYaml } from "../PropertyDiff.ts";
+import type { DeclaredPropertyYaml } from "../../PropertyDiff.ts";
 import { NamespaceRow, namespaceStyle } from "./PlanRow.tsx";
 
 // ── Row model ─────────────────────────────────────────────────────────────
@@ -647,11 +653,11 @@ export function PlanView(props: PlanViewProps): JSX.Element {
                   paddingLeft={line.paddingLeft}
                 />
               ) : (
-                <Box key={line.key} paddingLeft={line.paddingLeft}>
+                <DetailLine key={line.key} paddingLeft={line.paddingLeft}>
                   <Text tone="muted" dimColor>
                     no declared property changes
                   </Text>
-                </Box>
+                </DetailLine>
               ),
             )}
         {hiddenBelow > 0 ? (
@@ -801,11 +807,11 @@ function PlanRowView(props: {
       row.action === "update" ||
       row.action === "adopted" ||
       row.action === "replace" ? (
-        <Box paddingLeft={row.depth * 2 + 2}>
+        <DetailLine paddingLeft={row.depth * 2 + 2}>
           <Text tone="muted" dimColor>
             no declared property changes
           </Text>
-        </Box>
+        </DetailLine>
       ) : null
     ) : (
       row.propertyYaml.lines.map((line, index) => (
@@ -1024,8 +1030,8 @@ function YamlLine({
   const removed = change?.[1] === "-";
   const added = change?.[1] === "+";
   return (
-    <Box
-      width="100%"
+    <DetailLine
+      paddingLeft={paddingLeft}
       backgroundColor={
         removed
           ? theme.color.diffRemoveBackground
@@ -1039,7 +1045,7 @@ function YamlLine({
           {change?.[1] ?? " "}
         </Text>
       </Box>
-      <Box paddingLeft={paddingLeft} flexGrow={1}>
+      <Box flexGrow={1}>
         <Text wrap="truncate-end">
           {key === null ? (
             content
@@ -1053,6 +1059,36 @@ function YamlLine({
             </>
           )}
         </Text>
+      </Box>
+    </DetailLine>
+  );
+}
+
+function DetailLine({
+  paddingLeft,
+  backgroundColor,
+  children,
+}: {
+  readonly paddingLeft: number;
+  readonly backgroundColor?: string;
+  readonly children: ReactNode;
+}) {
+  const borderStyle = useBorderStyle();
+  return (
+    <Box paddingLeft={paddingLeft} width="100%">
+      <Box
+        width="100%"
+        paddingLeft={1}
+        borderStyle={borderStyle}
+        borderLeft
+        borderTop={false}
+        borderRight={false}
+        borderBottom={false}
+        borderColor={theme.color.muted}
+        borderDimColor
+        backgroundColor={backgroundColor}
+      >
+        {children}
       </Box>
     </Box>
   );

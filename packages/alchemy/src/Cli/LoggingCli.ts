@@ -10,7 +10,7 @@ import { formatElapsed } from "./Format.ts";
 import {
   actionStyle,
   isTerminalStatus as isTerminal,
-} from "./views/statusStyle.ts";
+} from "./components/view/statusStyle.ts";
 import type { ApplyEvent, ApplyStatus } from "../Report.ts";
 import { formatModeNote } from "./ModeTag.ts";
 import { formatDeclaredPropertyYaml } from "./PropertyDiff.ts";

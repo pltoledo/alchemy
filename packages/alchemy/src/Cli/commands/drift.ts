@@ -6,7 +6,7 @@ import * as Flag from "effect/unstable/cli/Flag";
 import * as Drift from "../../Alchemist/routes/drift.ts";
 import { Cli } from "../../Report.ts";
 import * as CliKit from "../CliKit/index.ts";
-import { planDecisionScreen } from "../views/PlanDecision.tsx";
+import { planDecisionScreen } from "../components/view/PlanDecision.tsx";
 
 import { config, envFile, profile, stage } from "./flags.ts";
 import { instrumentCommand } from "./instrument.ts";

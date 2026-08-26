@@ -8,8 +8,8 @@ import {
   Spinner,
   Text,
   useTerminalSize,
-} from "../CliKit/components.ts";
-import { CliKit, theme } from "../CliKit/index.ts";
+} from "../ui/index.ts";
+import { CliKit, theme } from "../../CliKit/index.ts";
 
 // ---------------------------------------------------------------------------
 // Events

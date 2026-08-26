@@ -44,4 +44,4 @@ export {
   type CliKitOptions,
   type TextInputOptions,
   type View,
-} from "./types.ts";
+} from "../components/types.ts";

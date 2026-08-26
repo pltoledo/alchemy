@@ -7,7 +7,7 @@ import * as CliKit from "../../../Cli/CliKit/index.ts";
 import { isPromptCancellation } from "../errors.ts";
 
 export const profileTui = Effect.promise(
-  () => import("../../../Cli/views/Profile.tsx"),
+  () => import("../../../Cli/components/view/Profile.tsx"),
 );
 
 export type EditAction = "add" | "reconfigure" | "remove";

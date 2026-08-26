@@ -19,9 +19,9 @@ import {
   useKeyGlyphs,
   useTerminalInput,
   useTerminalSize,
-} from "../CliKit/components.ts";
-import { Screen, theme, type ScreenController } from "../CliKit/index.ts";
-import { formatYamlLines } from "../PropertyDiff.ts";
+} from "../ui/index.ts";
+import { Screen, theme, type ScreenController } from "../../CliKit/index.ts";
+import { formatYamlLines } from "../../PropertyDiff.ts";
 
 export type StateFileRef =
   | {

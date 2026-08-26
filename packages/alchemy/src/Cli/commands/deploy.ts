@@ -8,7 +8,7 @@ import * as Drift from "../../Alchemist/routes/drift.ts";
 import * as Stacks from "../../Alchemist/routes/stack.ts";
 import { Cli } from "../../Report.ts";
 import * as CliKit from "../CliKit/index.ts";
-import { planDecisionScreen } from "../views/PlanDecision.tsx";
+import { planDecisionScreen } from "../components/view/PlanDecision.tsx";
 
 import {
   config,
@@ -120,7 +120,7 @@ const detectAndMaybeRepairDrift = Effect.fn(function* (
                 label: "Cancel",
               },
             ],
-            initialValue: "cancel" as const,
+            initialValue: "repair" as const,
           }),
         )
         .pipe(

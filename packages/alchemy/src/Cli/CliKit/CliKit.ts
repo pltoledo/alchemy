@@ -22,7 +22,7 @@ import type {
   CliKitCapabilities,
   TextInputOptions,
   View,
-} from "./types.ts";
+} from "../components/types.ts";
 
 /** The sole injected owner of terminal rendering and input for a CLI process. */
 export class CliKit extends Context.Service<

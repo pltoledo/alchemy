@@ -10,7 +10,7 @@ import * as CliKit from "../../Cli/CliKit/index.ts";
 import {
   stateExplorerScreen,
   type StateExplorerSource,
-} from "../views/StateExplorer.tsx";
+} from "../components/view/StateExplorer.tsx";
 import { failWithHelp, UserInputError } from "./errors.ts";
 import { config, envFile, profile } from "./flags.ts";
 import { instrumentCommand } from "./instrument.ts";

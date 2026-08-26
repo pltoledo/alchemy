@@ -9,8 +9,8 @@ import {
   Text,
   useBorderStyle,
   useCliEnvironment,
-} from "../CliKit/components.ts";
-import { theme } from "../CliKit/index.ts";
+} from "../ui/index.ts";
+import { theme } from "../../CliKit/index.ts";
 
 const displayValue = (value: unknown, colors: boolean): string => {
   // Bare top-level strings (e.g. a URL output) stay unquoted for copy-paste.

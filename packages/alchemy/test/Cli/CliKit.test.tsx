@@ -14,7 +14,7 @@ import {
 import {
   AnsweredPrompt,
   Alert,
-  BooleanChoice,
+  ChoiceGroup,
   DescriptionList,
   Heading,
   LiveStore,
@@ -28,19 +28,19 @@ import {
   Text,
   TextField,
   useLiveStore,
-} from "@/Cli/CliKit/components.ts";
-import { makeRuntime } from "@/Cli/CliKit/SigilRuntime.tsx";
-import { isInProgress } from "@/Cli/views/statusStyle.ts";
+} from "@/Cli/components/ui/index.ts";
+import { makeRuntime } from "@/Cli/components/view/Runtime.tsx";
+import { isInProgress } from "@/Cli/components/view/statusStyle.ts";
 import { makeResourceLogger, makeResourceOutput } from "@/Cli/Output.ts";
-import { stackOutputsView } from "@/Cli/views/StackOutputs.tsx";
-import { Plan } from "@/Cli/views/PlanView.tsx";
-import { ProfileDetailsBody } from "@/Cli/views/Profile.tsx";
+import { stackOutputsView } from "@/Cli/components/view/StackOutputs.tsx";
+import { Plan } from "@/Cli/components/view/PlanView.tsx";
+import { ProfileDetailsBody } from "@/Cli/components/view/Profile.tsx";
 import {
   buildStageNodes,
   stateExplorerScreen,
   StateExplorerStore,
   type StateExplorerSource,
-} from "@/Cli/views/StateExplorer.tsx";
+} from "@/Cli/components/view/StateExplorer.tsx";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
@@ -269,8 +269,8 @@ it("renders detailed plans as nested YAML", () => {
 
   expect(output).toContain("properties:");
   expect(output).toContain("config:");
-  expect(output).toContain("-       retries: 2");
-  expect(output).toContain("+       retries: 3");
+  expect(output).toContain("│ -     retries: 2");
+  expect(output).toContain("│ +     retries: 3");
   expect(output).toContain("(Test.Resource)");
 });
 
@@ -286,8 +286,8 @@ it("renders drift details without detailed mode", () => {
   });
 
   expect(output).not.toContain("drift:");
-  expect(output).toContain("-   value: declared");
-  expect(output).toContain("+   value: changed-out-of-band");
+  expect(output).toContain("│ - value: declared");
+  expect(output).toContain("│ + value: changed-out-of-band");
 });
 
 it("replaces provider details with refresh progress in place", () => {
@@ -491,17 +491,55 @@ it.effect("renders confirmations as a compact segmented choice", () =>
   Effect.gen(function* () {
     const { service } = makeStatic();
 
-    expect((yield* service.output.render(<BooleanChoice value />)).trim()).toBe(
-      "Yes   No",
-    );
     expect(
-      (yield* service.output.render(<BooleanChoice value={false} />)).trim(),
+      (yield* service.output.render(
+        <ChoiceGroup
+          value
+          choices={[
+            { value: true, label: "Yes" },
+            { value: false, label: "No" },
+          ]}
+        />,
+      )).trim(),
     ).toBe("Yes   No");
     expect(
       (yield* service.output.render(
-        <BooleanChoice value trueLabel="Destroy" falseLabel="Cancel" />,
+        <ChoiceGroup
+          value={false}
+          choices={[
+            { value: true, label: "Yes" },
+            { value: false, label: "No" },
+          ]}
+        />,
+      )).trim(),
+    ).toBe("Yes   No");
+    expect(
+      (yield* service.output.render(
+        <ChoiceGroup
+          value
+          choices={[
+            { value: true, label: "Destroy" },
+            { value: false, label: "Cancel" },
+          ]}
+        />,
       )).trim(),
     ).toBe("Destroy   Cancel");
+    expect(
+      (yield* service.output.render(
+        <ChoiceGroup
+          orientation="vertical"
+          value="repair"
+          choices={[
+            {
+              value: "repair",
+              label: "Repair",
+              description: "restore declared state",
+            },
+            { value: "cancel", label: "Cancel" },
+          ]}
+        />,
+      )).trim(),
+    ).toBe("Repair · restore declared state\n   Cancel");
   }),
 );
 

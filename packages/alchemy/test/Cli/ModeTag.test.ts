@@ -14,7 +14,7 @@
  */
 import { formatModeNote, modeLabel } from "@/Cli/ModeTag.ts";
 import { formatPlanLines } from "@/Cli/LoggingCli.ts";
-import { PlanViewStore } from "@/Cli/views/PlanView.tsx";
+import { PlanViewStore } from "@/Cli/components/view/PlanView.tsx";
 import type { CRUD, Plan } from "@/Plan.ts";
 import type { ProviderMode } from "@/ProviderMode.ts";
 import { describe, expect, test } from "alchemy-test";

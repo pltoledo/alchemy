@@ -5,8 +5,8 @@
  * component so the two views look like the same tree.
  */
 import type { JSX } from "react";
-import { Row, Text, useGlyphs } from "../CliKit/components.ts";
-import { theme } from "../CliKit/index.ts";
+import { Row, Text, useGlyphs } from "../ui/index.ts";
+import { theme } from "../../CliKit/index.ts";
 import { actionStyle, type PlanAction } from "./statusStyle.ts";
 
 export const namespaceStyle = (

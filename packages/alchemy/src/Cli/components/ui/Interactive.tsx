@@ -17,8 +17,8 @@ import {
 } from "react";
 import stringWidth from "string-width";
 import type { Choice, CycleChoice } from "../types.ts";
-import { theme } from "../theme.ts";
-import { copyToClipboard, truncate } from "../terminal.ts";
+import { theme } from "../../CliKit/theme.ts";
+import { copyToClipboard, truncate } from "../../CliKit/terminal.ts";
 import {
   useBorderStyle,
   useCliEnvironment,
@@ -703,15 +703,22 @@ export function InlineConfirm({
       <Text bold color={theme.color.brand}>
         {message}
       </Text>
-      <BooleanChoice
+      <ChoiceGroup
         value={value}
-        trueLabel={confirmLabel}
-        falseLabel={cancelLabel}
+        choices={[
+          { value: true, label: confirmLabel },
+          { value: false, label: cancelLabel },
+        ]}
       />
       <KeyBar
         marginTop={0}
         keys={[
-          [keys.yesNo, "choose"],
+          [
+            confirmLabel === "Yes" && cancelLabel === "No"
+              ? keys.yesNo
+              : keys.leftRight,
+            "choose",
+          ],
           [keys.enter, "confirm"],
           [keys.escape, "cancel"],
         ]}
@@ -720,61 +727,78 @@ export function InlineConfirm({
   );
 }
 
-type BooleanChoiceProps = {
-  readonly value: boolean;
-  readonly trueLabel?: string;
-  readonly falseLabel?: string;
-};
-
-export function SegmentedChoice<Value>({
-  choices,
-  value,
-}: {
+export interface ChoiceGroupProps<Value> {
   readonly choices: ReadonlyArray<{
     readonly value: Value;
     readonly label: string;
+    readonly description?: string;
   }>;
   readonly value: Value;
-}) {
+  readonly orientation?: "horizontal" | "vertical";
+  readonly active?: boolean;
+  readonly onChange?: (value: Value) => void;
+}
+
+export function ChoiceGroup<Value>({
+  choices,
+  value,
+  orientation = "horizontal",
+  active = true,
+  onChange,
+}: ChoiceGroupProps<Value>) {
+  const selected = Math.max(
+    0,
+    choices.findIndex((choice) => choice.value === value),
+  );
+  useTerminalInput(
+    (_input, key) => {
+      if (onChange === undefined || choices.length === 0) return;
+      const previous =
+        key.tab && key.shift
+          ? true
+          : orientation === "horizontal"
+            ? key.left
+            : key.up;
+      const next =
+        key.tab || (orientation === "horizontal" ? key.right : key.down);
+      if (!previous && !next) return;
+      const delta = previous ? -1 : 1;
+      const index = (selected + delta + choices.length) % choices.length;
+      onChange(choices[index]!.value);
+    },
+    { active: active && onChange !== undefined },
+  );
   return (
-    <Box gap={1} paddingLeft={theme.space.indent} aria-role="radiogroup">
+    <Box
+      gap={orientation === "horizontal" ? 1 : 0}
+      paddingLeft={theme.space.indent}
+      flexDirection={orientation === "horizontal" ? "row" : "column"}
+      aria-role="radiogroup"
+    >
       {choices.map((choice) => {
-        const active = choice.value === value;
+        const selected = choice.value === value;
         return (
           <Box
             key={choice.label}
             paddingX={1}
-            backgroundColor={active ? theme.paint.interactive : undefined}
+            backgroundColor={selected ? theme.paint.interactive : undefined}
             aria-role="radio"
             aria-label={choice.label}
-            aria-state={{ checked: active }}
+            aria-state={{ checked: selected }}
           >
             <Text
-              bold={active}
-              color={active ? theme.color.onAccent : undefined}
+              bold={selected}
+              color={selected ? theme.color.onAccent : undefined}
             >
               {choice.label}
             </Text>
+            {choice.description === undefined ? null : (
+              <Text tone="muted"> · {choice.description}</Text>
+            )}
           </Box>
         );
       })}
     </Box>
-  );
-}
-
-export function BooleanChoice({
-  value,
-  trueLabel = "Yes",
-  falseLabel = "No",
-}: BooleanChoiceProps) {
-  return (
-    <SegmentedChoice
-      value={value}
-      choices={[
-        { value: true, label: trueLabel },
-        { value: false, label: falseLabel },
-      ]}
-    />
   );
 }
 

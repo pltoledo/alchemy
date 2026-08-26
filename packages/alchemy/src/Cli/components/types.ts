@@ -1,6 +1,9 @@
 import type * as Effect from "effect/Effect";
 import type { ReactNode } from "react";
-import type { NonInteractiveTerminal, TerminalCancelled } from "./errors.ts";
+import type {
+  NonInteractiveTerminal,
+  TerminalCancelled,
+} from "../CliKit/errors.ts";
 
 /** A composable CLI layout. Views are inert; only CliKit renders them. */
 export type View = ReactNode;

@@ -7,9 +7,9 @@ import {
   Text,
   useBorderStyle,
   useGlyphs,
-} from "../CliKit/components.ts";
+} from "../ui/index.ts";
 import type { JSX } from "react";
-import { theme } from "../CliKit/index.ts";
+import { theme } from "../../CliKit/index.ts";
 
 export interface ProfileProviderDisplay {
   readonly name: string;

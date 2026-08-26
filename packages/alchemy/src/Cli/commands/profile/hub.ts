@@ -29,7 +29,7 @@ export const profileHub = Effect.fn(function* (options: {
     Effect.tap((entries) => Ref.set(lastEntries, entries)),
   );
   const { runProfileDashboardSession } = yield* Effect.promise(
-    () => import("../../views/ProfileDashboard.tsx"),
+    () => import("../../components/view/ProfileDashboard.tsx"),
   );
   // Warm the entrypoint module cache before the dashboard mounts: the user's
   // stack module evaluates synchronously on the main thread and would freeze

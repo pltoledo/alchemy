@@ -1,14 +1,14 @@
 /** @jsxImportSource react */
 import { useMemo, useState, type JSX } from "react";
-import type { Plan } from "../../Plan.ts";
+import type { Plan } from "../../../Plan.ts";
 import {
   Box,
   PromptFrame,
-  SegmentedChoice,
+  ChoiceGroup,
   useKeyGlyphs,
   useTerminalInput,
-} from "../CliKit/components.ts";
-import { Screen, type ScreenController } from "../CliKit/index.ts";
+} from "../ui/index.ts";
+import { Screen, type ScreenController } from "../../CliKit/index.ts";
 import { PlanView, PlanViewStore } from "./PlanView.tsx";
 
 export interface PlanDecisionChoice<Value> {
@@ -25,21 +25,11 @@ function PlanDecision<Value>(props: {
 }): JSX.Element {
   const { plan, message, choices, initialValue, controller } = props;
   const store = useMemo(() => new PlanViewStore(plan), [plan]);
-  const initialIndex = Math.max(
-    0,
-    choices.findIndex((choice) => choice.value === initialValue),
-  );
-  const [selected, setSelected] = useState(initialIndex);
+  const [selected, setSelected] = useState(initialValue);
   const keys = useKeyGlyphs();
-  const move = (delta: number) =>
-    setSelected(
-      (current) => (current + delta + choices.length) % choices.length,
-    );
 
   useTerminalInput((_input, key) => {
-    if (key.left) move(-1);
-    else if (key.right) move(1);
-    else if (key.enter) controller.submit(choices[selected]!.value);
+    if (key.enter) controller.submit(selected);
     else if (key.escape) controller.cancel();
   });
 
@@ -55,7 +45,11 @@ function PlanDecision<Value>(props: {
           [keys.escape, "cancel"],
         ]}
       >
-        <SegmentedChoice choices={choices} value={choices[selected]!.value} />
+        <ChoiceGroup
+          choices={choices}
+          value={selected}
+          onChange={setSelected}
+        />
       </PromptFrame>
     </Box>
   );
