@@ -953,6 +953,7 @@ function StateExplorer({
         <Box
           paddingX={1}
           flexShrink={0}
+          height={1}
           gap={1}
           borderStyle={borderStyle}
           borderTop
@@ -961,22 +962,27 @@ function StateExplorer({
           borderRight={false}
           borderColor={theme.color.danger}
         >
-          <Text bold color={theme.color.danger}>
-            Delete state?
-          </Text>
-          <Text wrap="truncate-middle">
-            {deletion.targets
-              .map(
-                (target) =>
-                  `${target.path}${target.kind === "resource" ? "" : "/"}`,
-              )
-              .join(", ")}
-          </Text>
-          <Text tone="muted">Cloud resources are unaffected.</Text>
-          <DeletionAction
-            status={deletion.status}
-            message={"message" in deletion ? deletion.message : undefined}
-          />
+          <Box flexGrow={1}>
+            {deletion.status === "deleting" ? (
+              <Spinner label="Deleting state" />
+            ) : (
+              <Text
+                bold={deletion.status !== "error"}
+                tone={deletion.status === "error" ? "danger" : undefined}
+                color={
+                  deletion.status === "error" ? undefined : theme.color.danger
+                }
+                wrap="truncate-end"
+              >
+                {deletion.status === "error"
+                  ? deletion.message
+                  : deletePrompt(deletion.targets)}
+              </Text>
+            )}
+          </Box>
+          <Box flexShrink={0}>
+            <DeletionAction status={deletion.status} />
+          </Box>
         </Box>
       )}
     </Box>
@@ -985,12 +991,19 @@ function StateExplorer({
 
 type DeletionActionProps = {
   status: "confirm" | "deleting" | "error";
-  message?: string;
 };
 
-function DeletionAction({ status, message }: DeletionActionProps) {
-  if (status === "deleting") return <Spinner label="Deleting state" />;
-  if (status === "error") return <Text tone="danger">{message}</Text>;
+const deletePrompt = (targets: ReadonlyArray<StateBrowserNode>) => {
+  if (targets.length !== 1) return `Delete ${targets.length} state records?`;
+  const target = targets[0]!;
+  return `Delete ${target.kind} “${target.name}” from state?`;
+};
+
+function DeletionAction({ status }: DeletionActionProps) {
+  if (status === "deleting") return null;
+  if (status === "error") {
+    return <KeyBar keys={[["esc", "dismiss"]]} />;
+  }
   return (
     <KeyBar
       keys={[
