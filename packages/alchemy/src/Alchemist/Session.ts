@@ -59,7 +59,7 @@ export const importStack = Effect.fn(function* (main: string) {
   if (!(yield* fs.exists(absolutePath))) {
     return yield* Effect.fail(
       new StackEntrypointError({
-        message: `Stack entrypoint '${main}' does not exist in '${path.dirname(absolutePath)}'. Run this command from an Alchemy project or pass --config <path>.`,
+        message: `Stack entrypoint '${main}' does not exist in '${path.dirname(absolutePath)}'. Run this command from an Alchemy project, pass --config <path>, or use --backend aws / --backend cloudflare for config-less state access.`,
       }),
     );
   }

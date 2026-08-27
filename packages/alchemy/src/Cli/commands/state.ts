@@ -12,12 +12,22 @@ import {
   type StateExplorerSource,
 } from "../components/view/StateExplorer.tsx";
 import { failWithHelp, UserInputError } from "./errors.ts";
-import { config, envFile, profile } from "./flags.ts";
+import { envFile, profile } from "./flags.ts";
 import { instrumentCommand } from "./instrument.ts";
 
-const backend = Flag.choice("backend", ["configured", "local"] as const).pipe(
+const backend = Flag.choice("backend", [
+  "configured",
+  "local",
+  "cloudflare",
+  "aws",
+] as const).pipe(
   Flag.withDescription("State backend (default: configured)"),
   Flag.withDefault("configured" as const),
+);
+const config = Flag.file("config").pipe(
+  Flag.withDescription("Alchemy entrypoint file (default: alchemy.run.ts)"),
+  Flag.withAlias("c"),
+  Flag.withDefault("alchemy.run.ts"),
 );
 const pathArgument = Argument.string("path").pipe(
   Argument.withDescription("State path (stack/stage/namespace/resource)"),
@@ -36,18 +46,24 @@ type StateArgs = {
   readonly main: string;
   readonly envFile: Option.Option<string>;
   readonly profile: string | undefined;
-  readonly backend: "configured" | "local";
+  readonly backend: "configured" | "local" | "cloudflare" | "aws";
 };
 
 const source = (args: StateArgs): StateSource =>
   args.backend === "local"
     ? { backend: "local" }
-    : {
-        backend: "configured",
-        entrypoint: args.main,
-        profile: args.profile,
-        envFile: Option.getOrUndefined(args.envFile),
-      };
+    : args.backend === "cloudflare" || args.backend === "aws"
+      ? {
+          backend: args.backend,
+          profile: args.profile,
+          envFile: Option.getOrUndefined(args.envFile),
+        }
+      : {
+          backend: "configured",
+          entrypoint: args.main,
+          profile: args.profile,
+          envFile: Option.getOrUndefined(args.envFile),
+        };
 
 const normalizedPath = (path: string | undefined) => {
   const parts = (path ?? "")

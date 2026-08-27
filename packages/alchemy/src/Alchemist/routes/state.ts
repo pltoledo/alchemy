@@ -1,12 +1,24 @@
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { AuthProviders } from "../../Auth/AuthProvider.ts";
+import { withProfileOverride } from "../../Auth/Resolve.ts";
+import * as AwsState from "../../AWS/StateStore/State.ts";
+import * as CloudflareState from "../../Cloudflare/StateStore/State.ts";
 import * as State from "../../State/index.ts";
+import { loadConfigProvider } from "../../Util/ConfigProvider.ts";
 import { open, type Target } from "../Session.ts";
 
 /** Which store a state request addresses. */
 export type StateSource =
   /** `.alchemy/` on this machine, ignoring whatever the project configures. */
   | { readonly backend: "local" }
+  /** A provider's default state store, without loading a project entrypoint. */
+  | ({ readonly backend: "aws" | "cloudflare" } & Pick<
+      Target,
+      "profile" | "envFile"
+    >)
   /** Whatever the project's entrypoint configures. */
   | ({ readonly backend: "configured" } & Target);
 
@@ -30,6 +42,30 @@ export const store = Effect.fn("Alchemist.state.store")(function* (
     return yield* Effect.provide(
       Effect.flatten(State.State),
       State.localState(),
+    );
+  }
+  if (source.backend === "aws" || source.backend === "cloudflare") {
+    const config = ConfigProvider.layer(
+      withProfileOverride(
+        yield* loadConfigProvider(Option.fromNullishOr(source.envFile)),
+        source.profile,
+      ),
+    );
+    const authProviders = Layer.succeed(
+      AuthProviders,
+      {} satisfies AuthProviders["Service"],
+    );
+    if (source.backend === "aws") {
+      return yield* Effect.flatten(State.State).pipe(
+        Effect.provide(AwsState.state()),
+        Effect.provide(authProviders),
+        Effect.provide(config),
+      );
+    }
+    return yield* Effect.flatten(State.State).pipe(
+      Effect.provide(CloudflareState.state()),
+      Effect.provide(authProviders),
+      Effect.provide(config),
     );
   }
   const session = yield* open(source);
