@@ -667,14 +667,34 @@ function StateExplorer({
   const confirmDelete = () => {
     if (deletion === undefined || deletion.status === "deleting") return;
     const targets = deletion.targets;
+    const deletes = (node: StateBrowserNode) =>
+      targets.some(
+        (target) =>
+          node.path === target.path || node.path.startsWith(`${target.path}/`),
+      );
+    const fallback =
+      selected === undefined || !deletes(selected)
+        ? undefined
+        : (filteredItems
+            .slice(selectedIndex + 1)
+            .find((node) => !deletes(node)) ??
+          filteredItems
+            .slice(0, selectedIndex)
+            .findLast((node) => !deletes(node)));
     setDeletion({ status: "deleting", targets });
     void Effect.runPromise(store.source.deleteNodes(targets)).then(
       () => {
         setDeletion(undefined);
         setMarked(new Map());
-        setSelection([]);
-        setColumnIndex(0);
-        setPreviewFocused(false);
+        if (selected !== undefined && deletes(selected)) {
+          setSelection((current) =>
+            fallback === undefined
+              ? current.slice(0, activeColumn)
+              : [...current.slice(0, activeColumn), fallback.id],
+          );
+          setPreviewOffset(0);
+          setPreviewFocused(false);
+        }
         setNotice(
           `Deleted state at ${targets.map((target) => `${target.path}${target.kind === "resource" ? "" : "/"}`).join(", ")}`,
         );
@@ -793,29 +813,6 @@ function StateExplorer({
     selected.kind === "output"
       ? currentPath
       : `${currentPath}/`;
-
-  if (deletion !== undefined) {
-    return (
-      <Box flexDirection="column" padding={1} gap={1}>
-        <Text bold color={theme.color.danger}>
-          Delete state records?
-        </Text>
-        <Text tone="muted">Cloud resources will not be deleted.</Text>
-        <Box flexDirection="column" paddingLeft={2}>
-          {deletion.targets.map((target) => (
-            <Text key={target.id}>
-              {target.path}
-              {target.kind === "resource" ? "" : "/"}
-            </Text>
-          ))}
-        </Box>
-        <DeletionAction
-          status={deletion.status}
-          message={"message" in deletion ? deletion.message : undefined}
-        />
-      </Box>
-    );
-  }
 
   return (
     <Box flexDirection="column" height={Math.max(12, terminalRows - 2)}>
@@ -937,20 +934,51 @@ function StateExplorer({
           </Box>
         )}
       </Box>
-      <Box paddingX={1} flexShrink={0}>
-        <KeyBar
-          keys={[
-            [keys.upDown, previewFocused ? "scroll" : "select"],
-            [keys.leftRight, "columns"],
-            ["/", "search"],
-            ["r", "refresh"],
-            [keys.space, "select"],
-            ["d", "delete"],
-            ...(file === undefined ? [] : ([[keys.tab, "preview"]] as const)),
-            ["q", "quit"],
-          ]}
-        />
-      </Box>
+      {deletion === undefined ? (
+        <Box paddingX={1} flexShrink={0}>
+          <KeyBar
+            keys={[
+              [keys.upDown, previewFocused ? "scroll" : "select"],
+              [keys.leftRight, "columns"],
+              ["/", "search"],
+              ["r", "refresh"],
+              [keys.space, "select"],
+              ["d", "delete"],
+              ...(file === undefined ? [] : ([[keys.tab, "preview"]] as const)),
+              ["q", "quit"],
+            ]}
+          />
+        </Box>
+      ) : (
+        <Box
+          paddingX={1}
+          flexShrink={0}
+          gap={1}
+          borderStyle={borderStyle}
+          borderTop
+          borderBottom={false}
+          borderLeft={false}
+          borderRight={false}
+          borderColor={theme.color.danger}
+        >
+          <Text bold color={theme.color.danger}>
+            Delete state?
+          </Text>
+          <Text wrap="truncate-middle">
+            {deletion.targets
+              .map(
+                (target) =>
+                  `${target.path}${target.kind === "resource" ? "" : "/"}`,
+              )
+              .join(", ")}
+          </Text>
+          <Text tone="muted">Cloud resources are unaffected.</Text>
+          <DeletionAction
+            status={deletion.status}
+            message={"message" in deletion ? deletion.message : undefined}
+          />
+        </Box>
+      )}
     </Box>
   );
 }
