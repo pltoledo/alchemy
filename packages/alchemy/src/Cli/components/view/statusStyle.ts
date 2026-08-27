@@ -24,10 +24,10 @@ export const actionStyle: Record<
 > = {
   create: { color: theme.color.success, icon: "add" },
   update: { color: theme.color.warning, icon: "edit" },
-  adopted: { color: theme.color.warning, icon: "adopt" },
+  adopted: { color: theme.color.magenta, icon: "adopt" },
   delete: { color: theme.color.danger, icon: "delete" },
-  orphaned: { color: theme.color.success, icon: "orphan" },
-  replace: { color: theme.color.warning, icon: "replace" },
+  orphaned: { color: theme.color.coral, icon: "orphan" },
+  replace: { color: theme.color.magenta, icon: "replace" },
   noop: { color: theme.color.muted, icon: "bullet" },
   mixed: { color: theme.color.info, icon: "info" },
   run: { color: theme.color.info, icon: "run" },

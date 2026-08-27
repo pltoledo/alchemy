@@ -12,6 +12,7 @@ const color = {
   success: "#9acb69",
   warning: "#efb85a",
   danger: "#d96f52",
+  magenta: "#c084d6",
   info: "#b6c77a",
   sage: "#b8cf83",
   olive: "#9ea85e",

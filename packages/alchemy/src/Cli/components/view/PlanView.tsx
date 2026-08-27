@@ -584,7 +584,7 @@ export function PlanView(props: PlanViewProps): JSX.Element {
   });
 
   // ── Header ────────────────────────────────────────────────────────────
-  const header =
+  const summary =
     mode === "apply" ? (
       finished ? (
         <Status
@@ -605,18 +605,20 @@ export function PlanView(props: PlanViewProps): JSX.Element {
 
   return (
     <Box flexDirection="column">
-      <Box
-        marginBottom={1}
-        borderStyle={borderStyle}
-        borderBottom
-        borderTop={false}
-        borderLeft={false}
-        borderRight={false}
-        borderColor={theme.color.muted}
-        borderDimColor
-      >
-        {header}
-      </Box>
+      {mode === "review" ? (
+        <Box
+          marginBottom={1}
+          borderStyle={borderStyle}
+          borderBottom
+          borderTop={false}
+          borderLeft={false}
+          borderRight={false}
+          borderColor={theme.color.muted}
+          borderDimColor
+        >
+          {summary}
+        </Box>
+      ) : null}
       <Box flexDirection="column">
         {shownOffset > 0 ? (
           <Text tone="muted">
@@ -667,6 +669,20 @@ export function PlanView(props: PlanViewProps): JSX.Element {
           </Text>
         ) : null}
       </Box>
+      {mode === "apply" ? (
+        <Box
+          marginTop={1}
+          borderStyle={borderStyle}
+          borderTop
+          borderBottom={false}
+          borderLeft={false}
+          borderRight={false}
+          borderColor={theme.color.muted}
+          borderDimColor
+        >
+          {summary}
+        </Box>
+      ) : null}
     </Box>
   );
 }
@@ -832,11 +848,9 @@ function PlanRowView(props: {
           icon={glyphs[style.icon]}
           iconColor={style.color}
           label={
-            row.action === "orphaned" ? (
-              <Text tone="muted">{row.id}</Text>
-            ) : (
-              row.id
-            )
+            <Text color={row.action === "noop" ? undefined : style.color}>
+              {row.id}
+            </Text>
           }
           depth={row.depth}
         >
