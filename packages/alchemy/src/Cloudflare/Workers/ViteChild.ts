@@ -97,6 +97,11 @@ export const startViteChild = (
         () => base.stack as { name: string; stage: string },
       ),
     };
+    const childEnv = {
+      ...process.env,
+      [RPC_SERVER_ENVIRONMENT_KEY]: JSON.stringify(childEnvironment),
+    };
+    delete childEnv.NODE_ENV;
     const child = yield* spawner.spawn(
       ChildProcess.make(
         nodeExecPath ?? process.execPath,
@@ -108,10 +113,8 @@ export const startViteChild = (
           stdin: Stream.succeed(serializedConfig),
           stdout: "pipe",
           stderr: "pipe",
-          env: {
-            [RPC_SERVER_ENVIRONMENT_KEY]: JSON.stringify(childEnvironment),
-          },
-          extendEnv: true,
+          env: childEnv,
+          extendEnv: false,
           killSignal: "SIGKILL",
         },
       ),

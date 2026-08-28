@@ -605,20 +605,18 @@ export function PlanView(props: PlanViewProps): JSX.Element {
 
   return (
     <Box flexDirection="column">
-      {mode === "review" ? (
-        <Box
-          marginBottom={1}
-          borderStyle={borderStyle}
-          borderBottom
-          borderTop={false}
-          borderLeft={false}
-          borderRight={false}
-          borderColor={theme.color.muted}
-          borderDimColor
-        >
-          {summary}
-        </Box>
-      ) : null}
+      <Box
+        marginBottom={1}
+        borderStyle={borderStyle}
+        borderBottom
+        borderTop={false}
+        borderLeft={false}
+        borderRight={false}
+        borderColor={theme.color.muted}
+        borderDimColor
+      >
+        {summary}
+      </Box>
       <Box flexDirection="column">
         {shownOffset > 0 ? (
           <Text tone="muted">
@@ -669,20 +667,6 @@ export function PlanView(props: PlanViewProps): JSX.Element {
           </Text>
         ) : null}
       </Box>
-      {mode === "apply" ? (
-        <Box
-          marginTop={1}
-          borderStyle={borderStyle}
-          borderTop
-          borderBottom={false}
-          borderLeft={false}
-          borderRight={false}
-          borderColor={theme.color.muted}
-          borderDimColor
-        >
-          {summary}
-        </Box>
-      ) : null}
     </Box>
   );
 }
