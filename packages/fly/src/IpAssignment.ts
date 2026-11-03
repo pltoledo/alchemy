@@ -335,9 +335,14 @@ const matchesDesired = (
   return true;
 };
 
+/**
+ * The App's ingress addresses. Fly lists egress addresses on the same
+ * endpoint; they belong to `Fly.EgressIp`, and none of them is a match
+ * for, or a public address of, an IP assignment.
+ */
 const listAssignments = (appName: string) =>
   machines.listAppIPAssignments({ app_name: appName }).pipe(
-    Effect.map((res) => res.ips ?? []),
+    Effect.map((res) => (res.ips ?? []).filter((item) => item.egress !== true)),
     Effect.catchTag(["NotFound", "Forbidden"], () => Effect.succeed([] as FlyIPAssignment[])),
   );
 

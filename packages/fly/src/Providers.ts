@@ -18,6 +18,7 @@ import { ConnectPostgresHttp } from "./ConnectPostgresHttp.ts";
 import * as Credentials from "./Credentials.ts";
 import { DecryptHttp } from "./DecryptHttp.ts";
 import { DeleteObjectHttp } from "./DeleteObjectHttp.ts";
+import { EgressIp, EgressIpProvider } from "./EgressIp.ts";
 import { EncryptHttp } from "./EncryptHttp.ts";
 import { fromCredentials } from "./Environment.ts";
 import { ExecHttp } from "./ExecHttp.ts";
@@ -85,6 +86,7 @@ export const providers = () =>
       AssetDeployment,
       Bucket,
       Certificate,
+      EgressIp,
       IpAssignment,
       Machine,
       Postgres,
@@ -104,6 +106,7 @@ export const providers = () =>
         AssetDeploymentProvider(),
         BucketProvider(),
         CertificateProvider(),
+        EgressIpProvider(),
         IpAssignmentProvider(),
         MachineProvider(),
         PostgresProvider(),

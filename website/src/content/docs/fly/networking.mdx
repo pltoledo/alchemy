@@ -163,6 +163,25 @@ organization default. The network must already exist: an App created with
 the same `network` creates it, and an unknown name fails with
 `NetworkNotFound`. Changing `network` replaces the assignment.
 
+## Static outbound addresses
+
+A Machine's outbound address can change. When a partner only accepts
+connections from allowlisted addresses, allocate an
+[`EgressIp`](/providers/fly/egressip) pair on the App, in the region its
+Machines run in:
+
+```typescript
+export const Egress = Fly.EgressIp("Egress", {
+  app: Backend,
+  region: "gru",
+});
+```
+
+Every Machine of the App in `gru` sends its traffic from `Egress.ipv4`
+and `Egress.ipv6`, across deploys and Machine replacement. The pair
+does not receive traffic. Fly bills the IPv4 hourly. Machines that
+already run pick a new pair up within 5 to 10 minutes.
+
 ## Use your own hostname
 
 A Certificate covers a hostname on a `Fly.App`. It cannot target a
@@ -274,5 +293,6 @@ The [tutorial](/fly/tutorial/part-1) deploys a public Service.
 Services to each other on a stack network.
 [Services](/fly/compute/services) covers private Services and grouping
 Services in one [App](/fly/compute/apps). See the
-[`IpAssignment`](/providers/fly/ipassignment) and
+[`IpAssignment`](/providers/fly/ipassignment),
+[`EgressIp`](/providers/fly/egressip), and
 [`Certificate`](/providers/fly/certificate) references.
